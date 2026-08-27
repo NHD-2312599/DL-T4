@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Không tìm thấy trang — ĐL-T4{% endblock %}
+{% block content %}
+<section class="section success-section">
+  <div class="section-inner narrow success-box">
+    <h1 class="page-title">Không tìm thấy trang</h1>
+    <p class="page-sub">Đường dẫn này không tồn tại.</p>
+    <a href="{{ url_for('landing') }}" class="btn btn-primary">Về trang chủ</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Bảng thông tin trái táo xanh — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="section form-section form-section-xanh">
+  <div class="section-inner narrow">
+    <p class="eyebrow">Giai đoạn 2 · Tư vấn hình</p>
+    <h1 class="page-title">🍏 Bảng thông tin về trái</h1>
+    <p class="page-sub">Mẫu táo xanh — đầy đủ 22 mục, tập trung khai thác mục 15, 17, 19 trong buổi tư vấn lần 1.</p>
+
+    <form method="POST" class="fruit-form" novalidate>
+      {% if record_id %}<input type="hidden" name="record_id" value="{{ record_id }}">{% endif %}
+
+      <fieldset class="form-fieldset">
+        <legend>Thông tin người nhập</legend>
+        <label class="field search-picker" for="recordSearch">
+          <span class="field-label">Trái đã nhập trước đó (nếu có)</span>
+          <input type="search" id="recordSearch" placeholder="Tìm theo tên trái hoặc tên NDD..." autocomplete="off">
+          <input type="hidden" name="record_id" id="recordId" value="{{ record_id or form_data.get('record_id', '') }}">
+          <div class="search-results" id="recordResults" role="listbox" aria-label="Danh sách trái đã nhập">
+            {% for row in master_rows %}
+            <button type="button" class="search-result" role="option"
+              data-record-id="{{ row.get('Record_ID', '') }}"
+              data-search="{{ [row.get('Tên', ''), row.get('NDD', '')]|join(' ')|lower }}">
+              <strong>{{ row.get('Tên', 'Chưa có tên') }}</strong>
+              <span>{{ row.get('NDD', 'Chưa có NDD') }} · {{ row.get('Ngày chakki', 'Chưa có ngày') }}</span>
+              {% if row.get('Giai đoạn') %}<small>{{ row.get('Giai đoạn') }}</small>{% endif %}
+            </button>
+            {% endfor %}
+            {% if not master_rows %}<p class="search-empty">Chưa có trái nào có Record_ID trong bảng tổng.</p>{% endif %}
+            <p class="search-empty" id="noSearchResults" hidden>Không tìm thấy trái phù hợp.</p>
+          </div>
+          <p class="selected-record" id="selectedRecord" hidden></p>
+        </label>
+        <label class="field">
+          <span class="field-label">Người nhập (TVV) <span class="req">*</span></span>
+          <select name="nguoi_nhap" id="nguoiNhapSelect" required>
+            <option value="" {{ 'selected' if not form_data.get('nguoi_nhap') }}>-- Chọn TVV --</option>
+            {% for tv in nguoi_nhap_options %}
+            <option value="{{ tv }}" {{ 'selected' if form_data.get('nguoi_nhap')==tv }}>{{ tv }}</option>
+            {% endfor %}
+            <option value="Khác" {{ 'selected' if form_data.get('nguoi_nhap')=='Khác' }}>Khác...</option>
+          </select>
+        </label>
+        <label class="field field-khac" id="nguoiNhapKhacWrap" hidden>
+          <span class="field-label">Nhập tên TVV (Khác)</span>
+          <input type="text" name="nguoi_nhap_khac" value="{{ form_data.get('nguoi_nhap_khac','') }}" placeholder="Tên TVV">
+        </label>
+        <label class="field">
+          <span class="field-label">Tên NDD</span>
+          <input type="text" name="ten_ndd" value="{{ form_data.get('ten_ndd','') }}">
+        </label>
+        <label class="field">
+          <span class="field-label">Ngày chakki</span>
+          <input type="date" name="ngay_chakki" value="{{ form_data.get('ngay_chakki','') }}">
+        </label>
+        <label class="field">
+          <span class="field-label">Concept chakki</span>
+          <input type="text" name="concept_chakki" value="{{ form_data.get('concept_chakki','') }}">
+        </label>
+        <label class="field">
+          <span class="field-label">TVV (nếu khác người nhập)</span>
+          <input type="text" name="tvv" value="{{ form_data.get('tvv','') }}">
+        </label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>Thông tin cơ bản (1–5)</legend>
+        <label class="field"><span class="field-label">1. Họ tên cá</span>
+          <input type="text" name="ho_ten_ca" value="{{ form_data.get('ho_ten_ca','') }}"></label>
+        <label class="field"><span class="field-label">2. Giới tính</span>
+          <select name="gioi_tinh">
+            <option value="" {{ 'selected' if not form_data.get('gioi_tinh') }}>-- Chọn --</option>
+            <option value="Nam" {{ 'selected' if form_data.get('gioi_tinh')=='Nam' }}>Nam</option>
+            <option value="Nữ" {{ 'selected' if form_data.get('gioi_tinh')=='Nữ' }}>Nữ</option>
+          </select></label>
+        <label class="field"><span class="field-label">3. Năm sinh</span>
+          <input type="number" name="nam_sinh" value="{{ form_data.get('nam_sinh','') }}" min="1900" max="2100" inputmode="numeric"></label>
+        <label class="field"><span class="field-label">4. Nghề nghiệp</span>
+          <input type="text" name="nghe_nghiep" value="{{ form_data.get('nghe_nghiep','') }}"></label>
+        <label class="field"><span class="field-label">5. Số điện thoại</span>
+          <input type="tel" name="so_dien_thoai" value="{{ form_data.get('so_dien_thoai','') }}" inputmode="tel"></label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>Gia đình &amp; nơi ở (6–10)</legend>
+        <label class="field"><span class="field-label">6. Tình trạng hôn nhân</span>
+          <input type="text" name="tinh_trang_hon_nhan" value="{{ form_data.get('tinh_trang_hon_nhan','') }}"></label>
+        <label class="field"><span class="field-label">7. Mối quan hệ với người dẫn dắt</span>
+          <input type="text" name="moi_quan_he" value="{{ form_data.get('moi_quan_he','') }}"></label>
+        <label class="field"><span class="field-label">8. Địa chỉ nơi ở</span>
+          <input type="text" name="dia_chi" value="{{ form_data.get('dia_chi','') }}"></label>
+        <label class="field"><span class="field-label">9. Quê quán</span>
+          <input type="text" name="que_quan" value="{{ form_data.get('que_quan','') }}"></label>
+        <label class="field"><span class="field-label">10. Không gian sống</span>
+          <textarea name="khong_gian_song" rows="2">{{ form_data.get('khong_gian_song','') }}</textarea></label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>Lịch trình (11–12)</legend>
+        <label class="field"><span class="field-label">11. Thời gian làm việc / Lịch trình cố định</span>
+          <textarea name="thoi_gian_lam_viec" rows="2">{{ form_data.get('thoi_gian_lam_viec','') }}</textarea></label>
+        <label class="field"><span class="field-label">12. Khung thời gian rảnh</span>
+          <textarea name="khung_thoi_gian_ranh" rows="2">{{ form_data.get('khung_thoi_gian_ranh','') }}</textarea></label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>Đời sống tâm linh (13–14)</legend>
+        <label class="field"><span class="field-label">13. Tôn giáo</span>
+          <input type="text" name="ton_giao" value="{{ form_data.get('ton_giao','') }}"></label>
+        <label class="field"><span class="field-label">14. Quan điểm của cá về thần linh</span>
+          <textarea name="quan_diem_than_linh" rows="2">{{ form_data.get('quan_diem_than_linh','') }}</textarea></label>
+      </fieldset>
+
+      <fieldset class="form-fieldset form-fieldset-highlight">
+        <legend>Trọng tâm tư vấn lần 1 (15, 17, 19)</legend>
+        <label class="field"><span class="field-label">15. Sở thích / Mối bận tâm</span>
+          <textarea name="so_thich" rows="3">{{ form_data.get('so_thich','') }}</textarea></label>
+        <label class="field"><span class="field-label">17. Những câu chuyện, sự kiện đã trải qua</span>
+          <textarea name="cau_chuyen_su_kien" rows="3">{{ form_data.get('cau_chuyen_su_kien','') }}</textarea></label>
+        <label class="field"><span class="field-label">19. Thông tin người thân</span>
+          <textarea name="thong_tin_nguoi_than" rows="3">{{ form_data.get('thong_tin_nguoi_than','') }}</textarea></label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>Tính cách &amp; định hướng (16, 18, 20)</legend>
+        <label class="field"><span class="field-label">16. Tính cách</span>
+          <textarea name="tinh_cach" rows="2">{{ form_data.get('tinh_cach','') }}</textarea></label>
+        <label class="field"><span class="field-label">18. Dự định tương lai</span>
+          <textarea name="du_dinh_tuong_lai" rows="2">{{ form_data.get('du_dinh_tuong_lai','') }}</textarea></label>
+        <label class="field"><span class="field-label">20. Người quan trọng nhất với cá</span>
+          <input type="text" name="nguoi_quan_trong_nhat" value="{{ form_data.get('nguoi_quan_trong_nhat','') }}"></label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>Ghi chú tư vấn (21–22)</legend>
+        <label class="field"><span class="field-label">21. Công cụ đã tư vấn (nếu có)</span>
+          <input type="text" name="cong_cu_da_tu_van" value="{{ form_data.get('cong_cu_da_tu_van','') }}"></label>
+        <label class="field"><span class="field-label">22. Lưu ý</span>
+          <textarea name="luu_y" rows="2">{{ form_data.get('luu_y','') }}</textarea></label>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-block">Lưu vào Google Sheet</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

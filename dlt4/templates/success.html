@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Đã lưu thành công — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="section success-section">
+  <div class="section-inner narrow success-box">
+    <span class="success-icon {{ 'success-icon-do' if loai=='tao-do' else 'success-icon-xanh' }}" aria-hidden="true">
+      <svg viewBox="0 0 60 60" width="52" height="52">
+        <circle cx="30" cy="30" r="28" fill="{{ 'var(--do)' if loai=='tao-do' else 'var(--xanh)' }}"/>
+        <path d="M18 31 L26 39 L42 21" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    <h1 class="page-title">Đã lưu vào Google Sheet</h1>
+    <p class="page-sub">
+      {% if ten %}Thông tin của <strong>{{ ten }}</strong> đã được ghi lại.{% else %}Thông tin trái đã được ghi lại.{% endif %}
+      Bạn có thể mở Google Sheet của tổ để kiểm tra dòng vừa nhập.
+    </p>
+    {% if record_id %}<p class="page-sub">Mã bản ghi: <strong>{{ record_id }}</strong></p>{% endif %}
+    <div class="copy-panel">
+      <div class="copy-panel-head">
+        <h2>Bản copy để gửi</h2>
+        <button type="button" class="btn btn-copy" id="copyTextButton">Sao chép</button>
+      </div>
+      <textarea id="copyText" class="copy-text" readonly>{{ copy_text }}</textarea>
+      <p class="copy-status" id="copyStatus" aria-live="polite"></p>
+    </div>
+    <div class="hero-actions">
+      {% if loai == 'tao-do' %}
+        {% if record_id %}<a href="{{ url_for('update_master', record_id=record_id) }}" class="btn btn-primary">Cập nhật trái này</a>{% endif %}
+        <a href="{{ url_for('form_tao_do') }}" class="btn btn-primary">Nhập thêm trái táo đỏ</a>
+      {% else %}
+        {% if record_id %}<a href="{{ url_for('update_master', record_id=record_id) }}" class="btn btn-primary">Cập nhật trái này</a>{% endif %}
+        <a href="{{ url_for('form_tao_xanh') }}" class="btn btn-primary">Nhập thêm trái táo xanh</a>
+      {% endif %}
+      <a href="{{ url_for('landing') }}" class="btn btn-ghost">Về trang chủ</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

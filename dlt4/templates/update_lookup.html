@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Chọn trái cần cập nhật — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="section form-section">
+  <div class="section-inner narrow">
+    <p class="eyebrow">Cập nhật trái đã nhập</p>
+    <h1 class="page-title">Bạn muốn cập nhật trái nào?</h1>
+    <p class="page-sub">Chọn đúng trái trong danh sách để cập nhật giai đoạn và tình trạng.</p>
+
+    <form method="POST" class="fruit-form">
+      <div class="form-fieldset">
+        <label class="field search-picker" for="recordSearch">
+          <span class="field-label">Tìm trái cần cập nhật <span class="req">*</span></span>
+          <input type="search" id="recordSearch" placeholder="Tìm theo tên trái hoặc tên NDD..." autocomplete="off">
+          <input type="hidden" name="record_id" id="recordId" required>
+          <div class="search-results" id="recordResults" role="listbox" aria-label="Danh sách trái">
+            {% for row in master_rows %}
+            <button type="button" class="search-result" role="option"
+              data-record-id="{{ row.get('Record_ID', '') }}"
+              data-search="{{ [row.get('Tên', ''), row.get('NDD', '')]|join(' ')|lower }}">
+              <strong>{{ row.get('Tên', 'Chưa có tên') }}</strong>
+              <span>{{ row.get('NDD', 'Chưa có NDD') }} · {{ row.get('Ngày chakki', 'Chưa có ngày') }}</span>
+              {% if row.get('Giai đoạn') %}<small>{{ row.get('Giai đoạn') }}</small>{% endif %}
+            </button>
+            {% endfor %}
+            {% if not master_rows %}<p class="search-empty">Chưa có trái nào có Record_ID trong bảng tổng.</p>{% endif %}
+            <p class="search-empty" id="noSearchResults" hidden>Không tìm thấy trái phù hợp.</p>
+          </div>
+          <p class="selected-record" id="selectedRecord" hidden></p>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-block">Tìm trái để cập nhật</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

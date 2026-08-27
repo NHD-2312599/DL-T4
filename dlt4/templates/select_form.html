@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Chọn mẫu nhập — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="section select-section">
+  <div class="section-inner narrow">
+    <p class="eyebrow">Nhập thông tin trái</p>
+    <h1 class="page-title">Trái đang ở giai đoạn nào?</h1>
+    <p class="page-sub">Chọn đúng giai đoạn để dùng đúng mẫu — dữ liệu sẽ vào đúng tab trong Google Sheet.</p>
+
+    <div class="select-grid">
+      <a href="{{ url_for('form_tao_do') }}" class="select-card select-card-do">
+        <span class="select-icon" aria-hidden="true">
+          <svg viewBox="0 0 60 60" width="48" height="48"><circle cx="30" cy="33" r="20" fill="var(--do)"/><path d="M30 12 C30 5,36 5,36 12" stroke="var(--than)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+        </span>
+        <span class="select-stage">Giai đoạn 1</span>
+        <h2>Táo đỏ · Chakki</h2>
+        <p>Ghi nhận trái mới sau chakki: công cụ, concept, thông tin cơ bản, tiêu chí loại.</p>
+      </a>
+
+      <a href="{{ url_for('form_tao_xanh') }}" class="select-card select-card-xanh">
+        <span class="select-icon" aria-hidden="true">
+          <svg viewBox="0 0 60 60" width="48" height="48"><circle cx="30" cy="33" r="20" fill="var(--xanh)"/><path d="M30 12 C30 5,36 5,36 12" stroke="var(--than)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+        </span>
+        <span class="select-stage">Giai đoạn 2</span>
+        <h2>Táo xanh · Tư vấn hình</h2>
+        <p>Thông tin đầy đủ 22 mục để chuẩn bị tư vấn lần 1, tập trung mục 15, 17, 19.</p>
+      </a>
+
+      <a href="{{ url_for('update_master_lookup') }}" class="select-card select-card-update">
+        <span class="select-icon select-icon-update" aria-hidden="true">↻</span>
+        <span class="select-stage">Đã nhập trước đó</span>
+        <h2>Cập nhật trái đã nhập</h2>
+        <p>Bạn muốn cập nhật trái nào? Chọn đúng trái để cập nhật giai đoạn và tình trạng trên dòng cũ.</p>
+      </a>
+    </div>
+
+    <p class="select-help">Chưa rõ trái của mình thuộc giai đoạn nào? <a href="{{ url_for('explanation') }}">Xem lại 4 giai đoạn</a>.</p>
+    <p class="select-help">Muốn kiểm tra trái đã nhập trước đó? <a href="{{ sheet_view_url }}" target="_blank" rel="noopener">Xem thông tin trái chi tiết trên Google Sheet ↗</a>.</p>
+  </div>
+</section>
+{% endblock %}

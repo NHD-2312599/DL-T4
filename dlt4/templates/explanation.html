@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Giải thích chi tiết các giai đoạn — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div class="section-inner">
+    <p class="eyebrow">Giải thích chi tiết</p>
+    <h1 class="page-title">Các giai đoạn của trái</h1>
+    <p class="page-sub">Từ khi chakki đến khi được đăng ký center — mỗi giai đoạn có tiêu chí và bảng mẫu riêng.</p>
+  </div>
+</section>
+
+<section class="section stage-detail-list">
+  <div class="section-inner">
+    {% for g in giai_doan %}
+    <article class="stage-detail stage-detail-{{ g.mau }}" id="giai-doan-{{ g.so }}">
+      <div class="stage-detail-head">
+        <span class="stage-detail-num">{{ '0' ~ g.so }}</span>
+        <div>
+          <h2>{{ g.ten }}</h2>
+          <p class="stage-detail-time">{{ g.thoi_gian }}</p>
+        </div>
+      </div>
+
+      <div class="stage-detail-body">
+        <div class="stage-block">
+          <h3>Chi tiết nội dung</h3>
+          <ul>
+            {% for item in g.chi_tiet %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="stage-block stage-block-result">
+          <h3>Kết quả</h3>
+          <p>{{ g.ket_qua }}</p>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+
+    <div class="cta-band">
+      <p>Sẵn sàng ghi nhận một trái mới?</p>
+      <a href="{{ url_for('select_form') }}" class="btn btn-primary">Nhập thông tin trái</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

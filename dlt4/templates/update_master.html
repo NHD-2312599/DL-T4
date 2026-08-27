@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Cập nhật tình hình trái — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="section form-section">
+  <div class="section-inner narrow">
+    <p class="eyebrow">Cập nhật bảng thông tin trái quả</p>
+    <h1 class="page-title">Cập nhật tình hình trái</h1>
+    <p class="page-sub">Chỉ cập nhật các thông tin vận hành. Dữ liệu được ghi đè trên đúng dòng cũ trong Google Sheet.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <div class="form-fieldset">
+      <legend>Thông tin hiện tại</legend>
+      <p><strong>{{ master_data.get('Tên', '') }}</strong></p>
+      <p>NDD: {{ master_data.get('NDD', '') }} · Ngày chakki: {{ master_data.get('Ngày chakki', '') }}</p>
+      <p>Record_ID: {{ record_id }}</p>
+    </div>
+
+    <form method="POST" class="fruit-form">
+      <div class="form-fieldset">
+        <legend>Tình hình mới</legend>
+        <label class="field"><span class="field-label">Tên trái</span>
+          <input type="text" name="ten" value="{{ master_data.get('Tên', '') }}">
+        </label>
+        <label class="field"><span class="field-label">Giai đoạn</span>
+          <select name="giai_doan">
+            {% for option in ['0. Cần khai thác thêm', '0.1. Đang chờ GGN duyệt', '1. Chakki', '2. TVH', '3. TV, BB', '4. Center'] %}
+            <option value="{{ option }}" {{ 'selected' if master_data.get('Giai đoạn') == option else '' }}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="field"><span class="field-label">Mục tiêu tháng</span>
+          <select name="muc_tieu_thang">
+            {% for option in ['KGT1', 'KGT2', 'KGT3', 'KGT4', 'KGT5', 'KGT6', 'KGT7', 'KGT8', 'KGT9', 'KGT10', 'KGT11', 'KGT12', 'Mục tiêu tháng'] %}
+            <option value="{{ option }}" {{ 'selected' if master_data.get('Mục tiêu tháng') == option else '' }}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="field"><span class="field-label">Trạng thái</span>
+          <select name="trang_thai">
+            {% for option in ['Alive', 'Drop', 'Pause'] %}
+            <option value="{{ option }}" {{ 'selected' if master_data.get('Trạng thái') == option else '' }}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="field"><span class="field-label">Hình thức</span>
+          <input type="text" name="hinh_thuc" value="{{ master_data.get('Hình thức', '') }}">
+        </label>
+        <label class="field"><span class="field-label">Công cụ</span>
+          <select name="cong_cu">
+            {% for option in ['4 hình', 'Test Beck', 'Kokology', 'Dự án Sơ Sơ', 'Workshop Sơ Sơ', 'Test stress', 'Bắt chuyện làm quen', 'Test xu hướng đọc sách', 'Jondo festival', 'Enneagram', 'Khác'] %}
+            <option value="{{ option }}" {{ 'selected' if master_data.get('Công cụ') == option else '' }}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="field"><span class="field-label">GVBB</span>
+          <input type="text" name="gvbb" value="{{ master_data.get('GVBB', '') }}">
+        </label>
+        <label class="field"><span class="field-label">Tình trạng</span>
+          <select name="tinh_trang">
+            {% for option in ['Làm thân', 'Cần Feedback', 'TVL1', 'TVL2', 'Đã có group TVH'] %}
+            <option value="{{ option }}" {{ 'selected' if master_data.get('Tình trạng') == option else '' }}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="field"><span class="field-label">Ghi chú</span>
+          <textarea name="ghi_chu" rows="3">{{ master_data.get('Ghi chú', '') }}</textarea>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-block">Lưu cập nhật</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

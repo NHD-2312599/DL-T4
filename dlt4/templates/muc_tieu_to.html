@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Mục tiêu tổ — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div class="section-inner">
+    <p class="eyebrow">Theo dõi tiến độ</p>
+    <h1 class="page-title">🎯 Mục tiêu tổ</h1>
+    <p class="page-sub">
+      Mốc % và số trái/điểm cần đạt theo từng tuần, cho 4 giai đoạn — T7 là tuần bắt đầu,
+      T0 là tuần về đích.
+    </p>
+  </div>
+</section>
+
+<section class="section goal-section">
+  <div class="section-inner">
+
+    <!-- Bảng đầy đủ: cuộn ngang trên điện thoại, cột "Tuần" luôn cố định -->
+    <div class="goal-table-wrap">
+      <table class="goal-table">
+        <thead>
+          <tr class="goal-table-groups">
+            <th class="goal-col-tuan" rowspan="2">Tuần</th>
+            {% for g in groups %}
+            <th class="goal-group-head goal-group-{{ g.mau }}" colspan="2">{{ g.ten }}</th>
+            {% endfor %}
+          </tr>
+          <tr class="goal-table-sub">
+            {% for g in groups %}
+            <th class="goal-group-{{ g.mau }}">%</th>
+            <th class="goal-group-{{ g.mau }}">{{ g.don_vi_2 }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <th class="goal-col-tuan">{{ row.tuan }}</th>
+            {% for pct, so in row.vals %}
+            <td class="goal-cell goal-group-{{ groups[loop.index0].mau }}">
+              <span class="goal-pct">{{ pct }}%</span>
+            </td>
+            <td class="goal-cell goal-cell-so">{{ so }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="goal-table-hint">↔ Vuốt ngang để xem đủ 4 giai đoạn trên điện thoại.</p>
+
+    <!-- Xem theo từng tuần: trực quan bằng thanh tiến độ, dễ xem trên điện thoại -->
+    <h2 class="section-title goal-cards-title">Xem theo từng tuần</h2>
+    <p class="section-sub">Mỗi thẻ là mốc mục tiêu của 1 tuần, kèm thanh tiến độ theo từng giai đoạn.</p>
+
+    <div class="goal-week-list">
+      {% for row in rows %}
+      <article class="goal-week-card">
+        <div class="goal-week-head">
+          <span class="goal-week-label">{{ row.tuan }}</span>
+        </div>
+        <div class="goal-week-body">
+          {% for pct, so in row.vals %}
+          <div class="goal-bar-row">
+            <div class="goal-bar-top">
+              <span class="goal-bar-name goal-text-{{ groups[loop.index0].mau }}">{{ groups[loop.index0].ten }}</span>
+              <span class="goal-bar-value">{{ pct }}% · {{ so }} {{ groups[loop.index0].don_vi_2 }}</span>
+            </div>
+            <div class="goal-bar-track">
+              <div class="goal-bar-fill goal-bar-{{ groups[loop.index0].mau }}" style="width: {{ pct }}%;"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+
+    <div class="cta-band">
+      <p>Đã đủ điều kiện, sẵn sàng ghi nhận trái?</p>
+      <a href="{{ url_for('select_form') }}" class="btn btn-primary">Nhập thông tin trái</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

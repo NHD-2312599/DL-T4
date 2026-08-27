@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Bảng thông tin trái táo đỏ — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="section form-section form-section-do">
+  <div class="section-inner narrow">
+    <p class="eyebrow">Giai đoạn 1 · Chakki</p>
+    <h1 class="page-title">🍎 Bảng thông tin về trái</h1>
+    <p class="page-sub">Mẫu táo đỏ (ver.041242) — điền xong sẽ tự động lưu vào Google Sheet.</p>
+
+    <form method="POST" class="fruit-form" novalidate>
+      {% if record_id %}<input type="hidden" name="record_id" value="{{ record_id }}">{% endif %}
+
+      <fieldset class="form-fieldset">
+        <legend>Thông tin người nhập</legend>
+
+        <label class="field">
+          <span class="field-label">Người nhập (NDD) <span class="req">*</span></span>
+          <select name="nguoi_nhap" id="nguoiNhapSelect" required>
+            <option value="" {{ 'selected' if not form_data.get('nguoi_nhap') }}>-- Chọn NDD --</option>
+            {% for tv in nguoi_nhap_options %}
+            <option value="{{ tv }}" {{ 'selected' if form_data.get('nguoi_nhap')==tv }}>{{ tv }}</option>
+            {% endfor %}
+            <option value="Khác" {{ 'selected' if form_data.get('nguoi_nhap')=='Khác' }}>Khác...</option>
+          </select>
+        </label>
+        <label class="field field-khac" id="nguoiNhapKhacWrap" hidden>
+          <span class="field-label">Nhập tên NDD (Khác)</span>
+          <input type="text" name="nguoi_nhap_khac" value="{{ form_data.get('nguoi_nhap_khac','') }}" placeholder="Tên NDD">
+        </label>
+
+        <label class="field">
+          <span class="field-label">Ngày chakki</span>
+          <input type="date" name="ngay_chakki" value="{{ form_data.get('ngay_chakki','') }}">
+        </label>
+
+        <label class="field">
+          <span class="field-label">Concept</span>
+          <input type="text" name="concept" value="{{ form_data.get('concept','') }}" placeholder="Concept chakki">
+        </label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>Thông tin trái</legend>
+
+        <label class="field">
+          <span class="field-label">1. Họ tên cá (Năm sinh) / Nam·Nữ</span>
+          <input type="text" name="ho_ten_ca" value="{{ form_data.get('ho_ten_ca','') }}" placeholder="VD: Nguyễn Văn A (2001) / Nam">
+        </label>
+
+        <label class="field">
+          <span class="field-label">2. Hình thức chakki</span>
+          <select name="hinh_thuc_chakki">
+            <option value="" {{ 'selected' if not form_data.get('hinh_thuc_chakki') }}>-- Chọn --</option>
+            <option value="Online" {{ 'selected' if form_data.get('hinh_thuc_chakki')=='Online' }}>Online</option>
+            <option value="Offline" {{ 'selected' if form_data.get('hinh_thuc_chakki')=='Offline' }}>Offline</option>
+            <option value="Bạn" {{ 'selected' if form_data.get('hinh_thuc_chakki')=='Bạn' }}>Bạn</option>
+            <option value="Gia đình" {{ 'selected' if form_data.get('hinh_thuc_chakki')=='Gia đình' }}>Gia đình</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">→ Mức độ thân thiết mối quan hệ</span>
+          <select name="muc_do_than_thiet">
+            <option value="" {{ 'selected' if not form_data.get('muc_do_than_thiet') }}>-- Chọn --</option>
+            <option value="Cao" {{ 'selected' if form_data.get('muc_do_than_thiet')=='Cao' }}>Cao</option>
+            <option value="Trung bình" {{ 'selected' if form_data.get('muc_do_than_thiet')=='Trung bình' }}>Trung bình</option>
+            <option value="Thấp" {{ 'selected' if form_data.get('muc_do_than_thiet')=='Thấp' }}>Thấp</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">3. Nơi ở</span>
+          <input type="text" name="noi_o" value="{{ form_data.get('noi_o','') }}">
+        </label>
+
+        <label class="field">
+          <span class="field-label">4. Nghề nghiệp / Nơi làm việc</span>
+          <input type="text" name="nghe_nghiep" value="{{ form_data.get('nghe_nghiep','') }}">
+        </label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>5. Tính cách</legend>
+        <label class="field">
+          <span class="field-label">Theo công cụ (TSH, hình vẽ,...)</span>
+          <textarea name="tinh_cach_cong_cu" rows="2">{{ form_data.get('tinh_cach_cong_cu','') }}</textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Kết nối qua tin nhắn</span>
+          <div class="radio-chip-group">
+            <label class="radio-chip">
+              <input type="radio" name="tinh_cach_tin_nhan" value="Phản hồi"
+                {{ 'checked' if form_data.get('tinh_cach_tin_nhan')=='Phản hồi' }}>
+              <span>✅ Phản hồi</span>
+            </label>
+            <label class="radio-chip">
+              <input type="radio" name="tinh_cach_tin_nhan" value="Không phản hồi"
+                {{ 'checked' if form_data.get('tinh_cach_tin_nhan')=='Không phản hồi' }}>
+              <span>🚫 Không phản hồi</span>
+            </label>
+          </div>
+        </label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>6. Thần tính</legend>
+        <label class="field">
+          <span class="field-label">Có: Catholic / Church / Buddhism — Không: tin thần linh / không tin</span>
+          <input type="text" name="than_tinh" value="{{ form_data.get('than_tinh','') }}" placeholder="VD: Không - không tin">
+        </label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>7. Hoàn cảnh</legend>
+        <label class="field">
+          <span class="field-label">Hiện tại</span>
+          <textarea name="hoan_canh_hien_tai" rows="2">{{ form_data.get('hoan_canh_hien_tai','') }}</textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Kì nghỉ / Học kì</span>
+          <textarea name="hoan_canh_ki_nghi" rows="2">{{ form_data.get('hoan_canh_ki_nghi','') }}</textarea>
+        </label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>8. Nỗi lo lắng</legend>
+        <label class="field">
+          <span class="field-label">Nỗi lo lắng</span>
+          <textarea name="noi_lo_lang" rows="2">{{ form_data.get('noi_lo_lang','') }}</textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Sự quan tâm (VD: xem kênh YouTube nào? Sở thích?)</span>
+          <textarea name="su_quan_tam" rows="2">{{ form_data.get('su_quan_tam','') }}</textarea>
+        </label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>Liên hệ</legend>
+        <label class="field">
+          <span class="field-label">9. Số điện thoại</span>
+          <input type="tel" name="so_dien_thoai" value="{{ form_data.get('so_dien_thoai','') }}" inputmode="tel">
+        </label>
+      </fieldset>
+
+      <fieldset class="form-fieldset">
+        <legend>❌ Lý do bị loại (nếu có)</legend>
+        <div class="checkbox-grid">
+          {% for ly_do in ly_do_loai_options %}
+          <label class="checkbox-chip">
+            <input type="checkbox" name="ly_do_loai" value="{{ ly_do }}"
+              {{ 'checked' if ly_do in selected_ly_do_loai else '' }}>
+            <span>{{ ly_do }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-block">Lưu vào Google Sheet</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

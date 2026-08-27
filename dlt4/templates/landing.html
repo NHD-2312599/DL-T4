@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}ĐL-T4 — Theo dõi hành trình trái{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">ĐL · Tổ 4</p>
+    <h1 class="hero-title">Hành trình<br>từ <span class="tag-do">Chakki</span> đến <span class="tag-xanh">Center</span>.</h1>
+    <p class="hero-sub">
+      ĐL-T4 là nơi tổ nhập, lưu và theo dõi thông tin từng trái qua 4 giai đoạn —
+      dữ liệu bạn nhập ở đây được ghi thẳng vào Google Sheet của tổ.
+    </p>
+    <div class="hero-actions">
+      <a href="{{ url_for('select_form') }}" class="btn btn-primary">Nhập thông tin trái</a>
+      <a href="{{ url_for('explanation') }}" class="btn btn-ghost">Xem chi tiết 4 giai đoạn</a>
+      <a href="{{ sheet_view_url }}" class="btn btn-ghost" target="_blank" rel="noopener">Xem thông tin trái chi tiết ↗</a>
+    </div>
+  </div>
+
+  <div class="hero-vine" aria-hidden="true">
+    <svg viewBox="0 0 900 160" preserveAspectRatio="none" class="vine-svg">
+      <path d="M20 90 C 200 20, 300 160, 460 90 S 700 20, 880 90" stroke="var(--than)" stroke-width="2" fill="none" stroke-dasharray="1 10" stroke-linecap="round"/>
+    </svg>
+    {% for g in giai_doan %}
+    <div class="vine-node vine-node-{{ loop.index }}">
+      <span class="vine-dot vine-dot-{{ g.mau }}"></span>
+      <span class="vine-label">{{ g.so }}. {{ g.ten }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section features">
+  <div class="section-inner">
+    <h2 class="section-title">Nhập bảng thông tin trái</h2>
+    <p class="section-sub">Chọn đúng loại mẫu theo giai đoạn của trái để dữ liệu vào đúng cột trong Sheet.</p>
+
+    <div class="feature-grid">
+      <a href="{{ url_for('form_tao_do') }}" class="feature-card feature-do">
+        <span class="feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="34" height="34"><circle cx="20" cy="22" r="14" fill="var(--do)"/><path d="M20 8 C20 4,24 4,24 8" stroke="var(--than)" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        </span>
+        <h3>Trái táo đỏ</h3>
+        <p>Dùng ở giai đoạn 1 — Chakki. Ghi nhận thông tin ban đầu, công cụ, concept.</p>
+        <span class="feature-link">Điền mẫu táo đỏ →</span>
+      </a>
+
+      <a href="{{ url_for('form_tao_xanh') }}" class="feature-card feature-xanh">
+        <span class="feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="34" height="34"><circle cx="20" cy="22" r="14" fill="var(--xanh)"/><path d="M20 8 C20 4,24 4,24 8" stroke="var(--than)" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        </span>
+        <h3>Trái táo xanh</h3>
+        <p>Dùng ở giai đoạn 2 — Tư vấn hình. Thông tin chi tiết 22 mục để chuẩn bị tư vấn.</p>
+        <span class="feature-link">Điền mẫu táo xanh →</span>
+      </a>
+
+      <a href="{{ url_for('update_master_lookup') }}" class="feature-card feature-neutral">
+        <span class="feature-icon feature-update-icon" aria-hidden="true">↻</span>
+        <span class="select-stage">Đã nhập trước đó</span>
+        <h3>Cập nhật trái đã nhập</h3>
+        <p>Bạn muốn cập nhật trái nào? Chọn đúng trái để cập nhật giai đoạn và tình trạng trên dòng cũ.</p>
+        <span class="feature-link">Chọn trái để cập nhật →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="section stages-preview">
+  <div class="section-inner">
+    <h2 class="section-title">4 giai đoạn của một trái</h2>
+    <div class="stage-row">
+      {% for g in giai_doan %}
+      <div class="stage-chip stage-chip-{{ g.mau }}">
+        <span class="stage-num">{{ '0' ~ g.so }}</span>
+        <span class="stage-name">{{ g.ten }}</span>
+        <span class="stage-time">{{ g.thoi_gian }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="link-more-row">
+      <a href="{{ url_for('explanation') }}" class="link-more">Xem giải thích chi tiết từng giai đoạn →</a>
+      <a href="{{ url_for('muc_tieu_to') }}" class="link-more">Xem mục tiêu tổ theo tuần →</a>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

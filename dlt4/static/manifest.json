@@ -1,0 +1,17 @@
+{
+  "name": "ĐL-T4",
+  "short_name": "ĐL-T4",
+  "description": "Hệ thống theo dõi và nhập liệu trái theo 4 giai đoạn.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF6EC",
+  "theme_color": "#FBF6EC",
+  "icons": [
+    {
+      "src": "/static/img/sad-01.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
