@@ -16,6 +16,11 @@ class Config:
     SHEET_TAB_TAO_DO = os.environ.get("SHEET_TAB_TAO_DO", "Data_TaoDo")
     SHEET_TAB_TAO_XANH = os.environ.get("SHEET_TAB_TAO_XANH", "Data_TaoXanh")
     MASTER_SHEET_TAB = os.environ.get("MASTER_SHEET_TAB", "Bảng thông tin trái quả")
+    MUC_TIEU_TO_TAB = os.environ.get("MUC_TIEU_TO_TAB", "MỤC TIÊU TỐ")
+    GIAI_DOAN_TAB = os.environ.get(
+        "GIAI_DOAN_TAB",
+        "GIẢI THÍCH CHI TIẾT CÁC GIAI ĐOẠN",
+    )
 
     # Đường dẫn tới file service account JSON (tải từ Google Cloud Console)
     GOOGLE_CREDENTIALS_PATH = os.environ.get(
@@ -29,18 +34,21 @@ class Config:
         s.strip()
         for s in os.environ.get(
             "NGUOI_NHAP_LIST",
-            "NTDN,NHĐ,PTV,PMP,PTKA,LNQN",
+            "CT,NTDN,PTTT,LNQN,PTV,PMP,NHĐ,PTKA",
         ).split(",")
         if s.strip()
     ]
 
     NGUOI_NHAP_NAME_MAP = {
+        "CT": "CIL Thanh",
         "NTDN": "Nguyễn Thị Diệu Ngân",
-        "NHĐ": "Nguyễn Huỳnh Đức",
+        "PTTT": "Phạm Thị Thanh Thảo",
+        "LNQN": "Lê Nguyễn Quỳnh Như",
         "PTV": "Phạm Tường Vy",
         "PMP": "Phạm Minh Phước",
-        "PTKA": "Phạm Trịnh Khánh An",
-        "LNQN": "Lê Nguyễn Quỳnh Như",
+        "NHĐ": "Nguyễn Huỳnh Đức",
+        "PTKA": "Phạm Trịnh Khánh An"
+        
     }
 
     # Link xem trực tiếp Google Sheet (nút "Xem thông tin trái chi tiết")

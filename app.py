@@ -12,12 +12,12 @@ sheets_client = SheetsClient(
     sheet_id=app.config["GOOGLE_SHEET_ID"],
 )
 
-# ---- Nội dung 4 giai đoạn, lấy từ tab "GIẢI THÍCH CHI TIẾT CÁC GIAI ĐOẠN" ----
+# ---- Nội dung 4 giai đoạn, dùng làm fallback nếu tab Sheet chưa có dữ liệu ----
 GIAI_DOAN = [
     {
         "so": 1,
         "ten": "Chakki",
-        "thoi_gian": "T7 → T4",
+        "thoi_gian": "T8 → T4",
         "mau": "do",
         "chi_tiet": [
             "Công cụ", "Concept", "Check hapja", "Có lịch TV lần 2",
@@ -67,6 +67,16 @@ GIAI_DOAN = [
         "ket_qua": "NDD: 0.5 điểm/trái · BB: 0.5 điểm/trái (trái tổ mình / trái tổ khác).",
     },
 ]
+
+
+def load_giai_doan_data():
+    try:
+        data = sheets_client.get_giai_doan(app.config["GIAI_DOAN_TAB"])
+        if data:
+            return data
+    except Exception as exc:
+        print(f"Lỗi khi đọc tab giai đoạn từ sheet: {exc}")
+    return GIAI_DOAN
 
 LY_DO_LOAI_OPTIONS = [
     "Quân đội", "Hải ngoại", "Sinh con", "LGBT", "Ở chung với bạn trai", "Vấn đề tâm lí",
@@ -239,14 +249,15 @@ MUC_TIEU_TO_GROUPS = [
 ]
 
 MUC_TIEU_TO_ROWS = [
-    {"tuan": "T7", "vals": [(40, 6), (0, 0), (0, 0), (0, 0)]},
-    {"tuan": "T6", "vals": [(60, 10), (20, 2), (0, 0), (0, 0)]},
-    {"tuan": "T5", "vals": [(80, 13), (40, 4), (20, 1), (0, 0)]},
-    {"tuan": "T4", "vals": [(100, 16), (80, 7), (50, 3), (0, 0)]},
-    {"tuan": "T3", "vals": [(100, 16), (100, 9), (80, 5), (50, 1)]},
-    {"tuan": "T2", "vals": [(100, 16), (100, 9), (100, 6), (80, 2)]},
-    {"tuan": "T1", "vals": [(100, 16), (100, 9), (100, 6), (100, 2)]},
-    {"tuan": "T0", "vals": [(100, 16), (100, 9), (100, 6), (100, 2)]},
+    {"tuan": "T8", "vals": [(50, 8), (0, 0), (0, 0), (0, 0)]},
+    {"tuan": "T7", "vals": [(80, 12), (30, 2), (0, 0), (0, 0)]},
+    {"tuan": "T6", "vals": [(100, 15), (50, 3), (0, 0), (0, 0)]},
+    {"tuan": "T5", "vals": [(100, 15), (80, 5), (20, 1), (0, 0)]},
+    {"tuan": "T4", "vals": [(100, 15), (80, 6), (50, 2), (0, 0)]},
+    {"tuan": "T3", "vals": [(100, 15), (100, 6), (80, 3), (50, 2)]},
+    {"tuan": "T2", "vals": [(100, 15), (100, 6), (100, 3.5), (80, 2)]},
+    {"tuan": "T1", "vals": [(100, 15), (100, 6), (100, 3.5), (100, 3)]},
+    {"tuan": "T0", "vals": [(100, 15), (100, 6), (100, 3.5), (100, 3)]},
 ]
 
 
@@ -261,21 +272,50 @@ def inject_globals():
 
 @app.route("/")
 def landing():
-    return render_template("landing.html", giai_doan=GIAI_DOAN)
+    return render_template("landing.html", giai_doan=load_giai_doan_data())
 
 
 @app.route("/giai-doan")
 def explanation():
-    return render_template("explanation.html", giai_doan=GIAI_DOAN)
+    return render_template("explanation.html", giai_doan=load_giai_doan_data())
 
 
 @app.route("/muc-tieu-to")
 def muc_tieu_to():
+    try:
+        data = sheets_client.get_muc_tieu_to(app.config["MUC_TIEU_TO_TAB"])
+        if data:
+            return render_template(
+                "muc_tieu_to.html",
+                groups=data["groups"],
+                rows=data["rows"],
+            )
+    except Exception as e:
+        print(f"Lỗi khi đọc mục tiêu từ sheet: {e}")
+    
+    # Fallback: sử dụng dữ liệu hardcoded nếu sheet không tồn tại
     return render_template(
         "muc_tieu_to.html",
         groups=MUC_TIEU_TO_GROUPS,
         rows=MUC_TIEU_TO_ROWS,
     )
+
+
+@app.route("/api/muc-tieu-to")
+def api_muc_tieu_to():
+    """API endpoint trả về dữ liệu mục tiêu dưới dạng JSON để AJAX fetch."""
+    try:
+        data = sheets_client.get_muc_tieu_to(app.config["MUC_TIEU_TO_TAB"])
+        if data:
+            return jsonify(data)
+    except Exception as e:
+        print(f"Lỗi API: {e}")
+    
+    # Fallback
+    return jsonify({
+        "groups": MUC_TIEU_TO_GROUPS,
+        "rows": MUC_TIEU_TO_ROWS,
+    })
 
 
 @app.route("/nhap-lieu")

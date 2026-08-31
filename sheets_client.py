@@ -365,3 +365,244 @@ class SheetsClient:
             if record_index < len(values_row) and values_row[record_index].strip() == record_id:
                 return dict(zip(headers, values_row))
         raise ValueError(f"Không tìm thấy Record_ID trong bảng tổng: {record_id}")
+
+    @staticmethod
+    def _normalise_tab_name(value):
+        return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+
+    @staticmethod
+    def parse_giai_doan_rows(rows):
+        """Chuyển dữ liệu từ sheet về cấu trúc dùng trong template explanation.html."""
+        records = []
+
+        for row_index, row in enumerate(rows):
+            if not any(str(cell).strip() for cell in row):
+                continue
+
+            row_text = " ".join(str(cell).strip() for cell in row if str(cell).strip())
+            row_norm = row_text.lower()
+            if any(keyword in row_norm for keyword in [
+                "thời gian", "thoi gian", "tên giai đoạn", "ten giai doan",
+                "giai doan", "giai đoạn", "giai doan", "giải thích",
+                "chi tiết", "chi tiet"
+            ]):
+                continue
+
+            cells = [str(cell).strip() for cell in row]
+            if len(cells) < 2:
+                continue
+
+            first = cells[0].lower()
+            is_indexed = first in {"stt", "no", "số"} or (cells[0].isdigit() or cells[0].startswith("1.") or cells[0].startswith("2."))
+
+            if is_indexed:
+                so = cells[0]
+                ten = cells[1] if len(cells) > 1 else ""
+                thoi_gian = cells[2] if len(cells) > 2 else ""
+                mau = cells[3].lower() if len(cells) > 3 else "do"
+                payload = cells[4:-1]
+                ket_qua = cells[-1] if len(cells) > 0 else ""
+            else:
+                so = str(row_index)
+                ten = cells[0]
+                thoi_gian = cells[1] if len(cells) > 1 else ""
+                mau = cells[2].lower() if len(cells) > 2 else "do"
+                payload = cells[3:-1]
+                ket_qua = cells[-1] if len(cells) > 0 else ""
+
+            if not ten or any(term in ten.lower() for term in ["giai doan", "giai đoạn", "thời gian", "thoi gian"]):
+                continue
+
+            chi_tiet = []
+            for value in payload:
+                if not value:
+                    continue
+                if value.lower() in {"kết quả", "ket qua", "ket qua:", "kết quả:"}:
+                    continue
+                if value.lower() == ket_qua.lower() and len(payload) == 1:
+                    continue
+                chi_tiet.append(value)
+
+            if not chi_tiet and ket_qua:
+                chi_tiet = [ket_qua]
+
+            if mau not in {"do", "xanh"}:
+                mau = "do" if "tư vấn" not in ten.lower() and "center" not in ten.lower() else "xanh"
+
+            records.append({
+                "so": int(so.replace(".", "")) if str(so).replace(".", "").isdigit() else row_index,
+                "ten": ten,
+                "thoi_gian": thoi_gian,
+                "mau": mau,
+                "chi_tiet": chi_tiet,
+                "ket_qua": ket_qua,
+            })
+
+        return records
+
+    def get_giai_doan(self, tab_name):
+        """Đọc dữ liệu tab 'Giải thích chi tiết các giai đoạn' từ sheet, hỗ trợ tên tab có biến thể chữ hoa/thường."""
+        try:
+            sh = self._connect()
+        except Exception:
+            return None
+
+        candidates = []
+        if tab_name:
+            candidates.append(tab_name)
+
+        for ws in sh.worksheets():
+            title_norm = self._normalise_tab_name(ws.title)
+            if "giai doan" in title_norm or "giai doan" in title_norm or "giai doan" in title_norm:
+                candidates.append(ws.title)
+            if any(keyword in title_norm for keyword in ["giai doan", "giai đoạn", "chi tiet", "giải thích", "explain", "giai doan"]):
+                candidates.append(ws.title)
+
+        seen = set()
+        ordered = []
+        for candidate in candidates:
+            key = str(candidate).strip()
+            if key and key.lower() not in seen:
+                ordered.append(key)
+                seen.add(key.lower())
+
+        for candidate in ordered:
+            try:
+                ws = sh.worksheet(candidate)
+                values = ws.get_all_values()
+                if not values:
+                    continue
+                records = self.parse_giai_doan_rows(values)
+                if records:
+                    return records
+            except gspread.WorksheetNotFound:
+                continue
+
+        return None
+
+    def get_muc_tieu_to(self, tab_name):
+        """
+        Đọc dữ liệu mục tiêu từ tab "MỤC TIÊU TỐ".
+        Hỗ trợ 2 định dạng:
+        1. Header: GIAI ĐOẠN | 1. Chakki | (trái) | 2. Tư vấn hình | ... (2 dòng header)
+        2. Header đơn giản: Tuần | 1. Chakki % | ... (1 dòng header)
+        
+        Nếu tab không tồn tại, trả về None để fallback vào hardcoded data.
+        """
+        try:
+            ws = self._connect().worksheet(tab_name)
+        except gspread.WorksheetNotFound:
+            # Tab không tồn tại - fallback sẽ sử dụng hardcoded data
+            return None
+
+        values = ws.get_all_values()
+        if not values or len(values) < 2:
+            return None
+
+        # Tìm dòng header chính (dòng chứa "Chakki")
+        header_row_idx = None
+        for idx, row in enumerate(values):
+            if any("chakki" in str(cell).lower() for cell in row):
+                header_row_idx = idx
+                break
+        
+        if header_row_idx is None:
+            return None
+
+        headers = values[header_row_idx]
+        
+        # Xác định cột đầu tiên chứa dữ liệu (thường là cột "TUẦN" hoặc "GIAI ĐOẠN")
+        data_start_col = 0
+        for idx, header in enumerate(headers):
+            if header.strip().upper() in ("TUẦN", "GIAI ĐOẠN"):
+                data_start_col = idx
+                break
+
+        # Nhóm các cột theo giai đoạn (từng 2 cột: %, số)
+        groups = []
+        data_cols = []  # Lưu index của cột dữ liệu
+
+        i = data_start_col + 1
+        while i < len(headers):
+            # Bỏ qua cột rỗng hoặc chứa "(trái)" / "(điểm)" / "%"
+            header_name = headers[i].strip()
+            
+            if not header_name or header_name.startswith("(") or header_name == "%":
+                i += 1
+                continue
+            
+            # Đây là cột giai đoạn (tên giai đoạn)
+            if any(term in header_name.lower() for term in ["chakki", "tư vấn", "center"]):
+                giai_doan_name = header_name
+                
+                # Xác định màu dựa trên tên giai đoạn
+                mau = "xanh" if "tư vấn hình" in giai_doan_name.lower() or "center" in giai_doan_name.lower() else "do"
+                
+                # Xác định đơn vị (trái hay điểm)
+                don_vi = "điểm" if "tư vấn, bb" in giai_doan_name.lower() or "tư vấn,bb" in giai_doan_name.lower() else "trái"
+                
+                groups.append({
+                    "ten": giai_doan_name,
+                    "mau": mau,
+                    "don_vi_2": don_vi,
+                })
+                data_cols.append(i)  # Chỉ lưu index cột giai đoạn chính
+            
+            i += 1
+
+        # Phân tích dữ liệu từng dòng
+        rows = []
+        for values_row in values[header_row_idx + 1:]:
+            if not values_row or len(values_row) <= data_start_col:
+                continue
+            
+            tuan_cell = values_row[data_start_col].strip()
+            if not tuan_cell:
+                continue
+            
+            # Kiểm tra xem có phải là dòng dữ liệu (chứa "T" theo sau bởi số)
+            if not any(term in tuan_cell.upper() for term in ["T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"]):
+                continue
+            
+            tuan = tuan_cell
+            vals = []
+            
+            for col_idx in data_cols:
+                pct_val = ""
+                count_val = ""
+                
+                # Lấy giá trị % từ cột hiện tại
+                if col_idx < len(values_row):
+                    pct_val = values_row[col_idx].strip()
+                
+                # Lấy giá trị số từ cột tiếp theo
+                if col_idx + 1 < len(values_row):
+                    count_val = values_row[col_idx + 1].strip()
+                
+                # Xử lý % (loại bỏ dấu % nếu có)
+                try:
+                    if pct_val.endswith("%"):
+                        pct = int(pct_val[:-1])
+                    else:
+                        pct = int(pct_val) if pct_val else 0
+                except (ValueError, AttributeError):
+                    pct = 0
+                
+                # Xử lý số lượng
+                try:
+                    count = int(count_val) if count_val else 0
+                except (ValueError, AttributeError):
+                    count = 0
+                
+                vals.append((pct, count))
+            
+            if vals:
+                rows.append({
+                    "tuan": tuan,
+                    "vals": vals,
+                })
+
+        return {
+            "groups": groups,
+            "rows": rows,
+        } if groups and rows else None
