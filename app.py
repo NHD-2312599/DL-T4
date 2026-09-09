@@ -407,22 +407,6 @@ def get_personal_goal_data():
     }
     detail_rows = {name: [] for name in member_names}
     detail_kgt_rows = {kgt: {name: [] for name in member_names} for kgt in KGT_OPTIONS}
-    for reference in reference_rows:
-        member = reference["Thành viên"]
-        if member not in totals:
-            continue
-        kgt = reference["KGT"]
-        if kgt and kgt not in kgt_totals:
-            kgt_totals[kgt] = {
-                "approach": {name: 0 for name in member_names},
-                **{name: {stage["key"]: 0 for stage in MUC_TIEU_CA_NHAN_STAGES} for name in member_names},
-            }
-            detail_kgt_rows[kgt] = {name: [] for name in member_names}
-        approach = _goal_number(reference.get("Tiếp cận"))
-        totals[member]["Tiếp cận"] += approach
-        if kgt in kgt_totals:
-            kgt_totals[kgt]["approach"][member] += approach
-
     for row in source_rows:
         raw_member = (row.get("NDD") or row.get("Thành viên") or "").strip()
         member = get_full_name(raw_member)
@@ -442,9 +426,6 @@ def get_personal_goal_data():
             "0.1",
         )
         if stage_value.startswith(excluded_stage_prefixes):
-            totals[member]["Tiếp cận"] += 1
-            if kgt in kgt_totals:
-                kgt_totals[kgt]["approach"][member] += 1
             continue
         stage_aliases = {
             "Chakki": ("chakki",),
@@ -463,10 +444,6 @@ def get_personal_goal_data():
             totals[member][stage["key"]] += 1
             if kgt in kgt_totals:
                 kgt_totals[kgt][member][stage["key"]] += 1
-            if stage["key"] in {"Chakki", "Tư vấn hình"}:
-                totals[member]["Tiếp cận"] += 1
-                if kgt in kgt_totals:
-                    kgt_totals[kgt]["approach"][member] += 1
             detail = {
                 "name": str(row.get("Tên") or "Trái chưa đặt tên").strip(),
                 "stage": stage["ten"],
@@ -693,7 +670,6 @@ def muc_tieu_ca_nhan():
 @app.route("/thong-so-ca-nhan")
 def thong_so_ca_nhan():
     members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
-    sync_goal_comparison_sheet(kgt_rows, goal_targets)
     comparison_rows, comparison_targets = get_goal_comparison_data(kgt_rows, goal_targets)
     return render_template(
         "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows,
