@@ -355,6 +355,9 @@ p{ margin: 0 0 1em; }
 .success-section{ padding-top: 70px; }
 .success-box{ text-align:center; }
 .success-icon{ display:inline-flex; margin-bottom: 18px; }
+.success-message{ display:flex; flex-direction:column; gap:5px; max-width:560px; margin:18px auto 22px; padding:18px 22px; border:1px solid #CFE0BC; border-left:4px solid var(--xanh); border-radius:12px; background:#F0F6E9; color:var(--xanh-toi); box-shadow:0 8px 24px rgba(86,111,60,.10); }
+.success-message strong{ font:600 22px var(--font-display); color:var(--than); }
+.success-message span{ font-size:14px; }
 .copy-panel{ margin: 28px auto 26px; text-align: left; max-width: 680px; }
 .copy-panel-head{ display:flex; align-items:center; justify-content:space-between; gap: 16px; margin-bottom: 10px; }
 .copy-panel-head h2{ margin: 0; font-size: 18px; }
