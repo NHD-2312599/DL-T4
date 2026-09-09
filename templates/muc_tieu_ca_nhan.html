@@ -1,0 +1,569 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Thông số cá nhân' if show_stats else 'Mục tiêu cá nhân' }} — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div class="section-inner">
+    <p class="eyebrow">Theo dõi từng thành viên</p>
+    <h1 class="page-title">{{ 'Thông số cá nhân' if show_stats else 'Mục tiêu cá nhân' }}</h1>
+    <p class="page-sub">{{ 'Theo dõi biểu đồ, tỷ lệ và bảng tổng hợp theo thành viên hoặc kỳ khai giảng.' if show_stats else 'Ghi nhận số trái được duyệt theo từng thành viên và giai đoạn.' }} Dữ liệu lấy từ tab <strong>{{ source_name }}</strong>.</p>
+    <div class="feature-switch" aria-label="Chuyển tính năng">
+      <a href="{{ url_for('muc_tieu_ca_nhan') }}" class="feature-switch-link {{ 'is-active' if not show_stats else '' }}">Mục tiêu cá nhân</a>
+      <a href="{{ url_for('thong_so_ca_nhan') }}" class="feature-switch-link {{ 'is-active' if show_stats else '' }}">Thông số</a>
+      <a href="{{ url_for('lich_trinh_khai_giang') }}" class="feature-switch-link">Lịch khai giảng</a>
+    </div>
+  </div>
+</section>
+
+{% if not show_stats %}
+<section class="section personal-goal-section">
+  <div class="section-inner personal-goal-grid">
+    <form method="POST" class="personal-goal-form">
+      <div class="panel-heading">
+        <span class="panel-kicker">01 · Ghi nhận</span>
+        <h2>Cập nhật mục tiêu cá nhân</h2>
+      </div>
+      <label class="field">
+        <span class="field-label">Thành viên <span class="req">*</span></span>
+        <select name="thanh_vien" required>
+          <option value="">-- Chọn thành viên --</option>
+          {% for member in members %}
+          <option value="{{ member }}" {{ 'selected' if form_data.get('thanh_vien') == member }}>{{ member }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Khai giảng <span class="req">*</span></span>
+        <select name="kgt" required>
+          {% for kgt in kgt_rows %}
+          <option value="{{ kgt }}" {{ 'selected' if form_data.get('kgt', current_kgt) == kgt }}>{{ kgt_label(kgt) }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <p class="form-hint">Mỗi lần cập nhật thuộc một kỳ khai giảng cụ thể. Tiếp cận cũng được cộng riêng theo đúng kỳ đã chọn.</p>
+      <div class="personal-stage-fields">
+        <label class="field"><span class="field-label stage-label stage-label-xanh">Tiếp cận</span><input type="number" name="tiep_can" min="0" step="1" value="{{ form_data.get('tiep_can', 0) }}"></label>
+        <label class="field"><span class="field-label stage-label stage-label-do">1. Chakki</span><input type="number" name="chakki" min="0" step="1" value="{{ form_data.get('chakki', 0) }}"></label>
+        <label class="field"><span class="field-label stage-label stage-label-xanh">2. Tư vấn hình</span><input type="number" name="tu_van_hinh" min="0" step="1" value="{{ form_data.get('tu_van_hinh', 0) }}"></label>
+        <label class="field"><span class="field-label stage-label stage-label-do">3. Tư vấn, BB <small>(trái, 1 trái = 0.5 điểm)</small></span><input type="number" name="tu_van_bb" min="0" step="1" value="{{ form_data.get('tu_van_bb', 0) }}"></label>
+        <label class="field"><span class="field-label stage-label stage-label-xanh">4. Center</span><input type="number" name="center" min="0" step="1" value="{{ form_data.get('center', 0) }}"></label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Lưu mục tiêu cá nhân</button>
+    </form>
+
+    <div class="personal-goal-note">
+      <span class="panel-kicker">02 · Cách tính</span>
+      <h2>Mục tiêu Khu vực giao</h2>
+      <p>Mỗi lần gửi sẽ được lưu thành một bản ghi riêng. Tiếp cận do thành viên nhập để kiểm tra tiến độ.</p>
+      <div class="goal-target-table-wrap">
+        <table class="goal-target-table">
+          <thead><tr><th>Thành viên</th><th>Tiếp cận</th><th>Chakki</th><th>TVH</th><th>TV, BB</th></tr></thead>
+          <tbody>
+            {% for member in members %}
+            {% set target = goal_targets.get(current_kgt, {}).get(member, {}) %}
+            <tr><th>{{ member }}</th><td>{{ target.get('Tiếp cận', 0) }}</td><td>{{ target.get('Chakki', 0) }}</td><td>{{ target.get('Tư vấn hình', 0) }}</td><td>{{ target.get('Tư vấn, BB', 0) }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+  <div class="section-inner personal-reference-section">
+    <div class="personal-reference-heading">
+      <div>
+        <span class="panel-kicker">04 · Tham khảo</span>
+        <h2>Dữ liệu tự nguyện đã nhập</h2>
+        <p>Các số liệu dưới đây đã được cộng dồn theo thành viên và kỳ khai giảng, chỉ mang tính tham khảo và không được dùng để cập nhật phần đối chiếu trong Thông số.</p>
+      </div>
+    </div>
+    <div class="personal-table-wrap personal-reference-table-wrap">
+      <table class="personal-table">
+        <thead><tr><th>Lần nhập gần nhất</th><th>Thành viên</th><th>Khai giảng</th><th>Tiếp cận</th><th>Chakki</th><th>Tư vấn hình</th><th>Tư vấn, BB</th><th>Center</th></tr></thead>
+        <tbody>
+          {% for row in reference_rows|reverse %}
+          <tr><td>{{ row.get('Thời gian nhập', '') }}</td><th>{{ row.get('Thành viên', '') }}</th><td>{{ row.get('KGT', '') }}</td><td>{{ row.get('Tiếp cận', 0) }}</td><td>{{ row.get('Chakki', 0) }}</td><td>{{ row.get('Tư vấn hình', 0) }}</td><td>{{ row.get('Tư vấn, BB', 0) }}</td><td>{{ row.get('Center', 0) }}</td></tr>
+          {% else %}
+          <tr><td colspan="8">Chưa có dữ liệu tự nguyện.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if show_stats %}
+<section class="section personal-stats-section">
+  <div class="section-inner">
+    <div class="panel-heading">
+      <span class="panel-kicker">03 · Thông số</span>
+      <h2>Tiến độ của 8 thành viên</h2>
+    </div>
+    <div class="personal-overview" aria-live="polite">
+      <article class="overview-card overview-card-total">
+        <span class="overview-label">Tổng trái đã ghi nhận</span>
+        <strong class="overview-value" id="overallTotal">0</strong>
+        <span class="overview-meta">trên tất cả kỳ khai giảng</span>
+      </article>
+      <article class="overview-card">
+        <span class="overview-label">Thành viên có tiến độ</span>
+        <strong class="overview-value" id="activeMembers">0</strong>
+        <span class="overview-meta" id="activeMembersMeta">0 thành viên trong danh sách</span>
+      </article>
+      <article class="overview-card overview-card-leader">
+        <span class="overview-label">Đang dẫn đầu</span>
+        <strong class="overview-value overview-value-name" id="leadingMember">Chưa có dữ liệu</strong>
+        <span class="overview-meta" id="leadingMemberMeta">0 trái đã ghi nhận</span>
+      </article>
+      <article class="overview-card overview-card-stages">
+        <div class="overview-stage-head"><span class="overview-label">Phân bổ theo giai đoạn</span><span class="overview-meta">Tổng</span></div>
+        <div class="stage-summary" id="stageSummary"></div>
+      </article>
+    </div>
+    <div class="goal-progress-panel">
+      <div class="ranking-heading">
+        <div class="goal-progress-heading-content"><span class="chart-kicker">Đối chiếu mục tiêu</span><h3>Tiến độ so với mục tiêu Khu vực giao</h3><a class="goal-sheet-link" href="{{ goal_sheet_view_url }}" target="_blank" rel="noopener">Mở Google Sheet đối chiếu ↗</a></div>
+        <div class="goal-progress-filter">
+          <label for="goalYearSelect">Năm</label>
+          <select id="goalYearSelect">
+            {% for year in kgt_years %}<option value="{{ year }}" {{ 'selected' if year == current_kgt.split('-')[1]|int else '' }}>{{ year }}</option>{% endfor %}
+          </select>
+          <label for="goalKgtSelect">Khai giảng</label>
+          <select id="goalKgtSelect">
+            {% for month in range(1, 13) %}<option value="{{ '%02d'|format(month) }}" {{ 'selected' if month == current_kgt.split('-')[2]|int else '' }}>Tháng {{ month }}</option>{% endfor %}
+          </select>
+        </div>
+        <button type="button" class="goal-progress-toggle" id="goalProgressToggle" aria-expanded="true" aria-controls="goalProgressGrid" aria-label="Thu gọn đối chiếu mục tiêu" title="Thu gọn đối chiếu mục tiêu"><span aria-hidden="true"></span></button>
+      </div>
+      <div class="goal-progress-grid" id="goalProgressGrid">
+        {% set initial_goal_rows = comparison_rows.get(current_kgt, chart_rows) %}
+        {% set initial_targets = comparison_targets.get(current_kgt, {}) %}
+        {% for row in initial_goal_rows %}
+        {% set target = initial_targets.get(row.member, {}) %}
+        <article class="goal-progress-row">
+          <h4>{{ row.member }}</h4>
+          <div class="goal-progress-cells">
+            {% for label, actual, goal in [
+              ('Tiếp cận', row.approach, target.get('Tiếp cận', 0)),
+              ('Chakki', row['values'][0], target.get('Chakki', 0)),
+              ('Tư vấn hình', row['values'][1], target.get('Tư vấn hình', 0)),
+              ('Tư vấn, BB', row['values'][2] * 0.5, target.get('Tư vấn, BB', 0))
+            ] %}
+            {% set percent = ((actual / goal) * 100)|round|int if goal else 0 %}
+            <div class="goal-progress-cell">
+              <div class="goal-progress-top"><span>{{ label }}</span><strong>{{ actual }}{% if label == 'Tư vấn, BB' %} điểm{% endif %}/{{ goal }}</strong></div>
+              <div class="goal-progress-track"><span style="width:{{ [100, percent]|min }}%"></span></div>
+              <small>{{ percent }}%</small>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="stats-grid">
+      <article class="chart-panel chart-panel-wide">
+        <div class="chart-panel-head">
+          <div><span class="chart-kicker">Tổng quan</span><h3 id="barChartTitle">Tổng trái theo thành viên</h3></div>
+          <div class="chart-control">
+            <label class="chart-select-label" for="kgtYearSelect">Năm</label>
+            <select id="kgtYearSelect">
+              <option value="all">Tất cả các năm</option>
+              {% for year in kgt_years %}<option value="{{ year }}" {{ 'selected' if year == current_kgt.split('-')[1]|int else '' }}>{{ year }}</option>{% endfor %}
+            </select>
+            <label class="chart-select-label" for="kgtChartSelect">Khai giảng</label>
+            <select id="kgtChartSelect">
+              <option value="all">Tất cả kỳ khai giảng</option>
+              {% for month in range(1, 13) %}<option value="{{ '%02d'|format(month) }}">Tháng {{ month }}</option>{% endfor %}
+            </select>
+            <label class="chart-select-label" for="stageChartSelect">Hiển thị</label>
+            <select id="stageChartSelect">
+              <option value="total">Tổng tất cả</option>
+              <option value="0">1. Chakki</option>
+              <option value="1">2. Tư vấn hình</option>
+              <option value="2">3. Tư vấn, BB</option>
+              <option value="3">4. Center</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="memberBarChart"></canvas></div>
+      </article>
+      <article class="chart-panel">
+        <div class="chart-panel-head chart-panel-head-stack">
+          <div><span class="chart-kicker">Chi tiết <span id="pieKgtLabel">· Tất cả kỳ khai giảng</span></span><h3>Cơ cấu giai đoạn</h3></div>
+          <label class="chart-select-label" for="memberChartSelect">Thành viên đang xem</label>
+          <select id="memberChartSelect"></select>
+        </div>
+        <div class="chart-wrap chart-wrap-pie"><canvas id="memberPieChart"></canvas></div>
+        <div class="stage-detail-list" id="stageDetailList"></div>
+      </article>
+    </div>
+
+    <div class="fruit-detail-list" id="fruitDetailList" role="dialog" aria-modal="true" aria-labelledby="fruitDetailTitle">
+      <div class="fruit-detail-modal">
+        <div class="fruit-detail-modal-head">
+          <div><span class="chart-kicker">Chi tiết thành viên</span><h3 id="fruitDetailTitle">Chi tiết trái</h3></div>
+          <button type="button" class="fruit-detail-close" id="fruitDetailClose" aria-label="Đóng chi tiết">&times;</button>
+        </div>
+        <div class="fruit-detail-content"></div>
+      </div>
+    </div>
+
+    <div class="personal-table-wrap">
+      <div class="ranking-heading">
+        <div><span class="chart-kicker">Bảng thành tích</span><h3>Xếp hạng theo <span id="rankingKgtLabel">Tất cả kỳ khai giảng</span></h3></div>
+      </div>
+      <table class="personal-table">
+        <thead><tr><th>Hạng</th><th>Thành viên</th><th>Chakki</th><th>Tư vấn hình</th><th>Tư vấn, BB (trái)</th><th>Center</th><th>Tổng trái</th></tr></thead>
+        <tbody id="personalTableBody">
+          {% for row in chart_rows %}
+          <tr><td class="rank-number">{{ loop.index }}</td><th>{{ row.member }}</th>{% for value in row['values'] %}<td>{{ value }}</td>{% endfor %}<td class="personal-total">{{ row['values']|sum }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if show_stats %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+const personalGoalData = {
+  stages: {{ [{"ten": "1. Chakki"}, {"ten": "2. Tư vấn hình"}, {"ten": "3. Tư vấn, BB"}, {"ten": "4. Center"}]|tojson }},
+  rows: {{ chart_rows|tojson }},
+  kgtRows: {{ kgt_rows|tojson }},
+  targetsByKgt: {{ goal_targets|tojson }},
+  comparisonRows: {{ comparison_rows|tojson }},
+  comparisonTargetsByKgt: {{ comparison_targets|tojson }},
+  defaultKgt: {{ current_kgt|tojson }}
+};
+const chartColors = ['#C1442C', '#6E8F4C', '#9E3320', '#D8A23B'];
+const memberSelect = document.getElementById('memberChartSelect');
+const yearSelect = document.getElementById('kgtYearSelect');
+const kgtSelect = document.getElementById('kgtChartSelect');
+const stageSelect = document.getElementById('stageChartSelect');
+const barChartTitle = document.getElementById('barChartTitle');
+const tableBody = document.getElementById('personalTableBody');
+const overallTotal = document.getElementById('overallTotal');
+const activeMembers = document.getElementById('activeMembers');
+const activeMembersMeta = document.getElementById('activeMembersMeta');
+const leadingMember = document.getElementById('leadingMember');
+const leadingMemberMeta = document.getElementById('leadingMemberMeta');
+const stageSummary = document.getElementById('stageSummary');
+const pieKgtLabel = document.getElementById('pieKgtLabel');
+const stageDetailList = document.getElementById('stageDetailList');
+const fruitDetailList = document.getElementById('fruitDetailList');
+const rankingKgtLabel = document.getElementById('rankingKgtLabel');
+const goalProgressGrid = document.getElementById('goalProgressGrid');
+const goalProgressToggle = document.getElementById('goalProgressToggle');
+const goalYearSelect = document.getElementById('goalYearSelect');
+const goalKgtSelect = document.getElementById('goalKgtSelect');
+let barChart;
+let pieChart;
+function formatKgtLabel(value) {
+  if (value === 'all') return 'Tất cả kỳ khai giảng';
+  const match = String(value).match(/^KGT-(\d{4})-(\d{2})$/i);
+  if (match) return `Khai giảng tháng ${Number(match[2])}/${match[1]}`;
+  return value;
+}
+const doughnutCenterText = {
+  id: 'doughnutCenterText',
+  afterDraw(chart) {
+    if (chart.config.type !== 'doughnut') return;
+    const total = chart.options.plugins.doughnutCenterText?.total ?? chart.data.datasets[0].data.reduce((sum, value) => sum + Number(value || 0), 0);
+    const { ctx, chartArea } = chart;
+    const centerX = (chartArea.left + chartArea.right) / 2;
+    const centerY = (chartArea.top + chartArea.bottom) / 2;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#2E4A3A';
+    ctx.font = '700 28px Fraunces, Georgia, serif';
+    ctx.fillText(total, centerX, centerY - 8);
+    ctx.fillStyle = '#5B7466';
+    ctx.font = '600 10px "IBM Plex Mono", monospace';
+    ctx.fillText('TRÁI', centerX, centerY + 17);
+    ctx.restore();
+  }
+};
+if (typeof Chart !== 'undefined') {
+  Chart.register(doughnutCenterText);
+}
+
+function selectedKgtKeys() {
+  const year = yearSelect.value;
+  const month = kgtSelect.value;
+  return Object.keys(personalGoalData.kgtRows).filter(kgt => {
+    const parts = kgt.split('-');
+    return (year === 'all' || parts[1] === year) && (month === 'all' || parts[2] === month);
+  });
+}
+
+function currentRows() {
+  const keys = selectedKgtKeys();
+  if (!keys.length || (yearSelect.value === 'all' && kgtSelect.value === 'all')) return personalGoalData.rows;
+  if (keys.length === 1) return personalGoalData.kgtRows[keys[0]];
+
+  return personalGoalData.rows.map(baseRow => {
+    const matchingRows = keys.map(key => personalGoalData.kgtRows[key].find(row => row.member === baseRow.member)).filter(Boolean);
+    return {
+      ...baseRow,
+      approach: matchingRows.reduce((sum, row) => sum + Number(row.approach || 0), 0),
+      details: matchingRows.flatMap(row => row.details || []),
+      values: personalGoalData.stages.map((stage, index) => matchingRows.reduce((sum, row) => sum + Number(row.values[index] || 0), 0))
+    };
+  });
+}
+
+function currentFilterLabel() {
+  const year = yearSelect.value;
+  const month = kgtSelect.value;
+  if (year === 'all' && month === 'all') return 'Tất cả kỳ khai giảng';
+  if (year === 'all') return `Tháng ${Number(month)} mọi năm`;
+  if (month === 'all') return `Năm ${year}`;
+  return `Khai giảng tháng ${Number(month)}/${year}`;
+}
+
+function syncKgtMonths() {
+  const selectedMonth = kgtSelect.value;
+  kgtSelect.innerHTML = '<option value="all">Tất cả kỳ khai giảng</option>'
+    + Array.from({ length: 12 }, (_, index) => {
+      const month = String(index + 1).padStart(2, '0');
+      return `<option value="${month}">Tháng ${index + 1}</option>`;
+    }).join('');
+  if ([...kgtSelect.options].some(option => option.value === selectedMonth)) kgtSelect.value = selectedMonth;
+}
+
+function selectedRow(rows) {
+  return rows.find(row => row.member === memberSelect.value) || rows[0];
+}
+
+function syncMemberOptions(rows) {
+  const selectedMember = memberSelect.value;
+  memberSelect.innerHTML = rows.map(row => `<option value="${row.member}">${row.member}</option>`).join('');
+  if (rows.some(row => row.member === selectedMember)) memberSelect.value = selectedMember;
+}
+
+function renderOverview(rows) {
+  const rowTotals = rows.map(row => ({ member: row.member, total: row.values.reduce((sum, value) => sum + Number(value || 0), 0) }));
+  const stageTotals = personalGoalData.stages.map((stage, index) => rows.reduce((sum, row) => sum + Number(row.values[index] || 0), 0));
+  const total = stageTotals.reduce((sum, value) => sum + value, 0);
+  const active = rowTotals.filter(row => row.total > 0).length;
+  const leaderTotal = Math.max(0, ...rowTotals.map(row => row.total));
+  const leaders = rowTotals.filter(row => row.total === leaderTotal && leaderTotal > 0);
+  const maxStage = Math.max(1, ...stageTotals);
+
+  overallTotal.textContent = total;
+  activeMembers.textContent = active;
+  activeMembersMeta.textContent = `${active}/${rows.length} thành viên trong danh sách`;
+  leadingMember.textContent = leaders.length === 1
+    ? leaders[0].member
+    : leaders.length
+      ? `${leaders.length}/${rows.length} thành viên đồng hạng`
+      : 'Chưa có dữ liệu';
+  leadingMember.title = leaders.map(row => row.member).join(', ');
+  leadingMemberMeta.textContent = leaders.length
+    ? `${leaderTotal} trái mỗi người`
+    : '0 trái đã ghi nhận';
+  stageSummary.innerHTML = stageTotals.map((value, index) => `
+    <div class="stage-summary-row">
+      <span>${personalGoalData.stages[index].ten.replace(/^\d+\.\s*/, '')}</span>
+      <span class="stage-summary-value">${value}</span>
+      <span class="stage-summary-track"><span style="width:${(value / maxStage) * 100}%; background:${chartColors[index]}"></span></span>
+    </div>`).join('');
+}
+
+function renderTable(rows) {
+  const rankedRows = rows.map(row => ({
+    ...row,
+    total: row.values.reduce((sum, value) => sum + Number(value || 0), 0)
+  })).sort((left, right) => right.total - left.total || left.member.localeCompare(right.member, 'vi'));
+  let previousTotal = null;
+  let previousRank = 0;
+  tableBody.innerHTML = rankedRows.map((row, index) => {
+    const rank = row.total === previousTotal ? previousRank : index + 1;
+    previousTotal = row.total;
+    previousRank = rank;
+    return `<tr><td class="rank-number rank-${rank}">${rank}</td><th>${row.member}</th>${row.values.map(value => `<td>${value}</td>`).join('')}<td class="personal-total">${row.total}</td></tr>`;
+  }).join('');
+}
+
+function renderGoalProgress() {
+  const comparisonKgt = `KGT-${goalYearSelect.value}-${goalKgtSelect.value}`;
+  const comparisonRows = personalGoalData.comparisonRows[comparisonKgt] || [];
+  const targets = personalGoalData.comparisonTargetsByKgt[comparisonKgt] || {};
+  const progressStages = [
+    ['Tiếp cận', row => row.approach || 0],
+    ['Chakki', row => row.values[0] || 0],
+    ['Tư vấn hình', row => row.values[1] || 0],
+    ['Tư vấn, BB', row => (row.values[2] || 0) * 0.5]
+  ];
+  if (!comparisonRows.length) {
+    goalProgressGrid.innerHTML = '<div class="goal-progress-empty">Chưa có dữ liệu đối chiếu cho kỳ khai giảng này.</div>';
+    return;
+  }
+  goalProgressGrid.innerHTML = comparisonRows.map(row => {
+    const target = targets[row.member] || {};
+    const cells = progressStages.map(([label, getActual]) => {
+      const goal = Number(target[label] || 0);
+      const actual = Number(getActual(row) || 0);
+      const percent = goal ? Math.round((actual / goal) * 100) : 0;
+      const actualLabel = label === 'Tư vấn, BB' ? `${actual} điểm` : actual;
+      return `<div class="goal-progress-cell">
+        <div class="goal-progress-top"><span>${label}</span><strong>${actualLabel}/${goal}</strong></div>
+        <div class="goal-progress-track"><span style="width:${Math.min(100, percent)}%"></span></div>
+        <small>${percent}%</small>
+      </div>`;
+    }).join('');
+    return `<article class="goal-progress-row"><h4>${row.member}</h4><div class="goal-progress-cells">${cells}</div></article>`;
+  }).join('');
+}
+
+function renderStageDetails(row) {
+  const values = row ? row.values.map(value => Number(value || 0)) : [0, 0, 0, 0];
+  stageDetailList.innerHTML = values.map((value, index) => {
+    return `<div class="stage-detail-row">
+      <span class="stage-detail-name"><i style="background:${chartColors[index]}"></i>${personalGoalData.stages[index].ten}</span>
+      <strong>${value}</strong>
+    </div>`;
+  }).join('');
+}
+
+function renderFruitDetails(row) {
+  const details = row?.details || [];
+  fruitDetailList.querySelector('.fruit-detail-content').innerHTML = `
+    <div class="fruit-detail-heading">
+      <span>Chi tiết trái</span><strong>${details.length} trái</strong>
+    </div>
+    ${details.length ? details.map(detail => `
+      <div class="fruit-detail-row">
+        <div><strong>${detail.name}</strong><span>${detail.stage} · ${formatKgtLabel(detail.kgt)}</span></div>
+        <small>${detail.date || detail.recordId || 'Đã ghi nhận'}</small>
+      </div>`).join('') : '<p class="fruit-detail-empty">Chưa có trái trong kỳ khai giảng này.</p>'}`;
+  fruitDetailList.classList.add('is-visible');
+}
+
+function hideFruitDetails() {
+  fruitDetailList.classList.remove('is-visible');
+  fruitDetailList.querySelector('.fruit-detail-content').innerHTML = '';
+}
+
+function chartMemberLabel(member) {
+  const words = member.split(' ');
+  const lines = [];
+  let line = '';
+  words.forEach(word => {
+    if (line && `${line} ${word}`.length > 13) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = line ? `${line} ${word}` : word;
+    }
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+
+function renderCharts() {
+  const labels = personalGoalData.stages.map(stage => stage.ten);
+  const rows = currentRows();
+  syncMemberOptions(rows);
+  rankingKgtLabel.textContent = currentFilterLabel();
+  const row = selectedRow(rows);
+  const rawPieValues = row ? row.values.map(value => Number(value || 0)) : [0, 0, 0, 0];
+  const pieTotal = rawPieValues.reduce((sum, value) => sum + value, 0);
+  const pieValues = pieTotal ? rawPieValues.map(value => value || 0.08) : [1, 1, 1, 1];
+  pieKgtLabel.textContent = `· ${currentFilterLabel()}`;
+  const selectedStage = stageSelect.value;
+  const showingTotal = selectedStage === 'total';
+  const stageIndex = showingTotal ? null : Number(selectedStage);
+  const barValues = rows.map(item => showingTotal
+    ? item.values.reduce((sum, value) => sum + Number(value || 0), 0)
+    : item.values[stageIndex]);
+  const barLabel = showingTotal ? 'Tổng trái' : labels[stageIndex];
+  barChartTitle.textContent = showingTotal ? 'Tổng trái theo thành viên' : `${barLabel} theo thành viên`;
+  if (barChart) barChart.destroy();
+  if (pieChart) pieChart.destroy();
+  barChart = new Chart(document.getElementById('memberBarChart'), {
+    type: 'bar',
+    data: {
+      labels: rows.map(item => chartMemberLabel(item.member)),
+      datasets: [{
+        label: barLabel,
+        data: barValues,
+        backgroundColor: '#2E4A3A',
+        borderRadius: 9,
+        borderSkipped: false,
+        maxBarThickness: 28,
+        categoryPercentage: 0.72,
+        barPercentage: 0.82
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: true },
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: '#243B2F', padding: 12, cornerRadius: 10, displayColors: false, titleFont: { weight: '600' }, bodyFont: { weight: '500' }, callbacks: { title: contexts => rows[contexts[0].dataIndex].member, label: context => ` ${context.parsed.x} trái` } }
+      },
+      scales: {
+        x: { beginAtZero: true, suggestedMax: Math.max(3, ...barValues) * 1.12, border: { display: false }, ticks: { precision: 0, color: '#718176', padding: 8, font: { size: 11, weight: '500' } }, grid: { color: 'rgba(91, 116, 102, .14)', drawTicks: false } },
+        y: { border: { display: false }, ticks: { color: '#2E4A3A', padding: 10, minRotation: 0, maxRotation: 0, autoSkip: false, font: { size: 11, weight: '500' } }, grid: { display: false } }
+      }
+    }
+  });
+  pieChart = new Chart(document.getElementById('memberPieChart'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: pieValues, backgroundColor: chartColors, borderWidth: 4, borderColor: '#FFFFFF', hoverOffset: 8 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '74%',
+      layout: { padding: 8 },
+      onClick(event, elements) {
+        if (elements.length) renderFruitDetails(row);
+      },
+      plugins: { doughnutCenterText: { total: pieTotal }, legend: { display: false }, tooltip: { backgroundColor: '#243B2F', padding: 12, cornerRadius: 10, displayColors: false, callbacks: { label: context => ` ${context.label}: ${rawPieValues[context.dataIndex]} trái` } } }
+    }
+  });
+  renderStageDetails(row);
+  hideFruitDetails();
+  renderOverview(rows);
+  renderTable(rows);
+  renderGoalProgress();
+}
+
+memberSelect.addEventListener('change', renderCharts);
+yearSelect.addEventListener('change', () => { syncKgtMonths(); renderCharts(); });
+kgtSelect.addEventListener('change', renderCharts);
+stageSelect.addEventListener('change', renderCharts);
+goalYearSelect.addEventListener('change', renderGoalProgress);
+goalKgtSelect.addEventListener('change', renderGoalProgress);
+goalProgressToggle.addEventListener('click', () => {
+  const isExpanded = goalProgressToggle.getAttribute('aria-expanded') === 'true';
+  goalProgressToggle.setAttribute('aria-expanded', String(!isExpanded));
+  goalProgressToggle.setAttribute('aria-label', isExpanded ? 'Mở đối chiếu mục tiêu' : 'Thu gọn đối chiếu mục tiêu');
+  goalProgressToggle.title = isExpanded ? 'Mở đối chiếu mục tiêu' : 'Thu gọn đối chiếu mục tiêu';
+  goalProgressToggle.classList.toggle('is-collapsed', isExpanded);
+  document.getElementById('goalProgressGrid').hidden = isExpanded;
+});
+document.getElementById('fruitDetailClose').addEventListener('click', hideFruitDetails);
+fruitDetailList.addEventListener('click', event => {
+  if (event.target === fruitDetailList) hideFruitDetails();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') hideFruitDetails();
+});
+renderGoalProgress();
+if (typeof Chart !== 'undefined') {
+  renderCharts();
+}
+</script>
+{% endif %}
+{% endblock %}

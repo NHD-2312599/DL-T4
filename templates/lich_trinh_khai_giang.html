@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Lịch trình khai giảng — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div class="section-inner">
+    <p class="eyebrow">Theo dõi từng kỳ khai giảng</p>
+    <h1 class="page-title">Lịch trình khai giảng</h1>
+    <p class="page-sub">Chọn một kỳ khai giảng để xem lịch do admin cập nhật.</p>
+    <div class="launch-filter" aria-label="Chọn kỳ khai giảng">
+      <label for="launchYearSelect">Năm</label>
+      <select id="launchYearSelect">
+        {% for year in kgt_years %}<option value="{{ year }}" {{ 'selected' if year == current_kgt.split('-')[1]|int else '' }}>{{ year }}</option>{% endfor %}
+      </select>
+      <label for="launchKgtSelect">Khai giảng</label>
+      <select id="launchKgtSelect">
+        {% for month in range(1, 13) %}<option value="{{ '%02d'|format(month) }}" {{ 'selected' if month == current_kgt.split('-')[2]|int else '' }}>Tháng {{ month }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+</section>
+
+<section class="section launch-page-section">
+  <div class="section-inner">
+    {% for schedule in schedules %}
+    <article class="launch-schedule-panel {{ 'is-active' if schedule.kgt == current_kgt else '' }}" id="{{ schedule.kgt }}" data-schedule-panel="{{ schedule.kgt }}" role="tabpanel">
+      <div class="launch-schedule-head">
+        <div>
+          <span class="panel-kicker">Lịch trình</span>
+          <h2>{{ kgt_label(schedule.kgt) }}</h2>
+          <p>{{ schedule.weeks|length }} mốc lịch đã được cập nhật</p>
+        </div>
+        {% if schedule.date %}<strong class="launch-date">{{ schedule.date }}</strong>{% endif %}
+      </div>
+      {% if schedule.weeks %}
+      <div class="launch-timeline">
+        {% for week in schedule.weeks %}
+        <article class="launch-week {{ 'launch-week-note' if week.event else '' }}">
+          {% if week.week %}<div class="launch-week-marker">{{ week.week }}</div>{% endif %}
+          {% if week.period %}<strong>{{ week.period }}</strong>{% endif %}
+          {% if week.event %}<em>{{ week.event }}</em>{% endif %}
+          {% if week.goal %}<p><b>Mục tiêu:</b> {{ week.goal }}</p>{% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="launch-empty-state">
+        <strong>Chưa có thông tin</strong>
+        <p>Admin sẽ cập nhật lịch trình cho kỳ khai giảng này.</p>
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const launchYearSelect = document.getElementById('launchYearSelect');
+const launchKgtSelect = document.getElementById('launchKgtSelect');
+
+function showLaunchSchedule() {
+  const selectedKgt = `KGT-${launchYearSelect.value}-${launchKgtSelect.value}`;
+  document.querySelectorAll('[data-schedule-panel]').forEach(panel => {
+    panel.classList.toggle('is-active', panel.dataset.schedulePanel === selectedKgt);
+  });
+  history.replaceState(null, '', `#${selectedKgt}`);
+}
+
+launchYearSelect.addEventListener('change', showLaunchSchedule);
+launchKgtSelect.addEventListener('change', showLaunchSchedule);
+
+const requestedKgt = window.location.hash.slice(1).toUpperCase();
+const requestedMatch = requestedKgt.match(/^KGT-(\d{4})-(\d{2})$/);
+if (requestedMatch) {
+  launchYearSelect.value = requestedMatch[1];
+  launchKgtSelect.value = requestedMatch[2];
+  showLaunchSchedule();
+}
+</script>
+{% endblock %}

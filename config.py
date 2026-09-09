@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
@@ -17,14 +19,18 @@ class Config:
     SHEET_TAB_TAO_XANH = os.environ.get("SHEET_TAB_TAO_XANH", "Data_TaoXanh")
     MASTER_SHEET_TAB = os.environ.get("MASTER_SHEET_TAB", "Bảng thông tin trái quả")
     MUC_TIEU_TO_TAB = os.environ.get("MUC_TIEU_TO_TAB", "MỤC TIÊU TỐ")
+    MUC_TIEU_CA_NHAN_TAB = os.environ.get("MUC_TIEU_CA_NHAN_TAB", "Mục tiêu cá nhân")
+    LICH_KHAI_GIANG_TAB = os.environ.get("LICH_KHAI_GIANG_TAB", "Lịch trình khai giảng")
+    DOI_CHIEU_MUC_TIEU_TAB = os.environ.get("DOI_CHIEU_MUC_TIEU_TAB", "Đối chiếu mục tiêu")
+    KGT_YEAR_COUNT = int(os.environ.get("KGT_YEAR_COUNT", "5"))
     GIAI_DOAN_TAB = os.environ.get(
         "GIAI_DOAN_TAB",
         "GIẢI THÍCH CHI TIẾT CÁC GIAI ĐOẠN",
     )
 
     # Đường dẫn tới file service account JSON (tải từ Google Cloud Console)
-    GOOGLE_CREDENTIALS_PATH = os.environ.get(
-        "GOOGLE_CREDENTIALS_PATH", "credentials.json"
+    GOOGLE_CREDENTIALS_PATH = os.environ.get("GOOGLE_CREDENTIALS_PATH") or os.path.join(
+        BASE_DIR, "dlt4", "credentials.json"
     )
 
     # Danh sách người nhập (NDD/TVV) hiển thị trong dropdown - lấy đúng theo
@@ -56,3 +62,4 @@ class Config:
         "GOOGLE_SHEET_VIEW_URL",
         f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEET_ID', '1IX_oVd3M6Anz2zTkFwxK02lWYQXhK-rFv70YgUtVH5Q')}/edit?usp=sharing",
     )
+    GOAL_SHEET_VIEW_URL = os.environ.get("GOAL_SHEET_VIEW_URL", GOOGLE_SHEET_VIEW_URL)

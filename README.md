@@ -44,8 +44,8 @@ không cần đăng nhập Google.
    - Đây là bước bắt buộc: nếu không share, web sẽ báo lỗi `PERMISSION_DENIED` khi ghi dữ liệu.
 6. Trong `.env`, kiểm tra lại `GOOGLE_SHEET_ID` đã đúng ID của Sheet (đoạn nằm giữa `/d/` và `/edit` trong URL).
 
-Khi có người nhập form lần đầu, web sẽ **tự tạo 2 tab mới** trong đúng Sheet đó:
-`Data_TaoDo` và `Data_TaoXanh`, kèm dòng tiêu đề đúng theo 2 mẫu bảng gốc. Mỗi lần nhập
+Khi có người nhập form lần đầu, web sẽ **tự tạo các tab dữ liệu** trong đúng Sheet đó:
+`Data_TaoDo`, `Data_TaoXanh` và `Mục tiêu cá nhân`, kèm dòng tiêu đề đúng theo từng mẫu. Mỗi lần nhập
 form là 1 dòng mới được thêm vào cuối tab tương ứng — không đè lên dữ liệu cũ.
 
 ## 3. Chạy thử local
@@ -90,8 +90,29 @@ Lý do bị loại.
 Thời gian nhập, Người nhập (TVV), Tên NDD, Ngày chakki, Concept chakki, TVV, và đủ 22 mục
 từ Họ tên cá đến Lưu ý.
 
+Trang `/muc-tieu-ca-nhan` lấy số liệu chính từ tab tổng `Bảng thông tin trái quả`: mỗi dòng có
+`Record_ID` được đếm theo `NDD` và `Giai đoạn` hiện tại, sau đó hiển thị biểu đồ cột, biểu đồ
+tròn và bảng tổng hợp. Các dòng nhập thủ công trong tab `Mục tiêu cá nhân` chỉ được hiển thị
+ở bảng tham khảo riêng, không tham gia phần đối chiếu tại `/thong-so-ca-nhan`. Có thể đổi tên
+tab này bằng biến môi trường `MUC_TIEU_CA_NHAN_TAB`.
+
 Có thể đổi tên 2 tab này trong `.env` (`SHEET_TAB_TAO_DO`, `SHEET_TAB_TAO_XANH`) nếu muốn
 map vào tab đã có sẵn — miễn là header dòng đầu tiên khớp thứ tự trong `sheets_client.py`.
+
+Tab `Lịch trình khai giảng` dùng để cập nhật lịch cho từng KGT. Mỗi dòng gồm các cột:
+`KGT`, `Ngày khai giảng`, `Tuần`, `Khoảng thời gian`, `Sự kiện`, `Mục tiêu`. KGT mới nên dùng
+dạng `KGT-2027-10`; mã cũ như `KGT10` vẫn được đọc như tháng 10 của năm hiện tại. Có thể đổi
+ tên tab bằng biến môi trường `LICH_KHAI_GIANG_TAB`. Trang `/lich-trinh-khai-giang` sinh 12
+kỳ cho mỗi năm được cấu hình; kỳ nào chưa có dữ liệu sẽ hiện `Chưa có thông tin`.
+
+Trong trang `Thông số`, phần `Đối chiếu mục tiêu` có link mở Google Sheet chung. Công thức
+`Tiếp cận` là: số nhập trong tab `Mục tiêu cá nhân` + số dòng trạng thái `0` hoặc `0.1` trong
+tab `Bảng thông tin trái quả` + số dòng ở giai đoạn `Chakki` hoặc `Tư vấn hình`.
+
+Mỗi lần mở trang `Thông số`, hệ thống tự đồng bộ một tab báo cáo tên `Đối chiếu mục tiêu`.
+Tab này được ghi lại theo từng KGT và thành viên, gồm mục tiêu và thực tế của Tiếp cận,
+Chakki, Tư vấn hình và Tư vấn, BB. Có thể đổi tên tab bằng biến môi trường
+`DOI_CHIEU_MUC_TIEU_TAB`; không cần nhập thủ công vào tab báo cáo này.
 
 ## 6. Các trang trong web
 
@@ -103,6 +124,9 @@ map vào tab đã có sẵn — miễn là header dòng đầu tiên khớp th�
 | `/nhap-lieu/tao-do` | Form nhập mẫu táo đỏ |
 | `/nhap-lieu/tao-xanh` | Form nhập mẫu táo xanh |
 | `/thanh-cong` | Trang xác nhận sau khi lưu |
+| `/muc-tieu-to` | Mục tiêu tổ theo tuần |
+| `/muc-tieu-ca-nhan` | Nhập mục tiêu cá nhân của 8 thành viên |
+| `/thong-so-ca-nhan` | Xem biểu đồ và thống kê mục tiêu cá nhân |
 
 ## 7. Những phần có thể mở rộng thêm sau
 

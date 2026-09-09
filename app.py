@@ -1,8 +1,17 @@
 import os
+import re
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 
 from config import Config
-from sheets_client import SheetsClient, HEADERS_TAO_DO, HEADERS_TAO_XANH
+from sheets_client import (
+    HEADERS_DOI_CHIEU_MUC_TIEU,
+    HEADERS_LICH_KHAI_GIANG,
+    HEADERS_MUC_TIEU_CA_NHAN,
+    HEADERS_TAO_DO,
+    HEADERS_TAO_XANH,
+    SheetsClient,
+)
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -17,20 +26,20 @@ GIAI_DOAN = [
     {
         "so": 1,
         "ten": "Chakki",
-        "thoi_gian": "T8 → T4",
+        "thoi_gian": "T8 → T6 (Nếu không đạt chỉ tiêu T6, T5 phải cố gắng hết sức để đạt được mục tiêu)",
         "mau": "do",
         "chi_tiet": [
-            "Công cụ", "Concept", "Check hapja", "Có lịch TV lần 2",
+            "Công cụ", "Concept", "Check hapja", "Có lịch TV lần 1",
         ],
         "ket_qua": "Bảng BC duyệt trái chakki — điền theo Mẫu bảng táo đỏ.",
     },
     {
         "so": 2,
         "ten": "Tư vấn hình",
-        "thoi_gian": "T6 → T3",
+        "thoi_gian": "T8 → T6, 5",
         "mau": "xanh",
         "chi_tiet": [
-            "Tư vấn lần 1 → NDD tư vấn",
+            "Tư vấn lần 1 → NDD tư vấn hoặc tìm người phù hợp để tư vấn",
             "Hẹn TV lần 2",
             "Kiểm tra thông tin hapja",
             "Lập group",
@@ -43,10 +52,10 @@ GIAI_DOAN = [
     {
         "so": 3,
         "ten": "Tư vấn, BB",
-        "thoi_gian": "T5 → T2",
+        "thoi_gian": "T5 → T1",
         "mau": "do",
         "chi_tiet": [
-            "TV: Trái đáp ứng tất cả tiêu chí sau — hapja sau TV lần 2; đã gặp GVBB "
+            "TV: Trái đáp ứng tất cả tiêu chí sau — hapja sau TV lần 2; đồng ý đóng học phí; đã hẹn và gặp GVBB buổi đầu tiên "
             "và xác định được lịch học 2-3 buổi/tuần đều đặn; trái đồng ý học, mong "
             "muốn đồng hành lâu dài. Cần có ID GVBB để được ghi nhận giai đoạn TV.",
             "BB: khi nào mở KT thì chuyển thành BB.",
@@ -59,10 +68,10 @@ GIAI_DOAN = [
     {
         "so": 4,
         "ten": "Center",
-        "thoi_gian": "T3 → T1",
+        "thoi_gian": "T1",
         "mau": "xanh",
         "chi_tiet": [
-            "Giới thiệu center", "Điền form đăng ký", "Được đăng ký center",
+            "Giới thiệu center", "Đồng ý đóng học phí 500K", "Điền form đăng ký", "Được đăng ký center",
         ],
         "ket_qua": "NDD: 0.5 điểm/trái · BB: 0.5 điểm/trái (trái tổ mình / trái tổ khác).",
     },
@@ -260,13 +269,319 @@ MUC_TIEU_TO_ROWS = [
     {"tuan": "T0", "vals": [(100, 15), (100, 6), (100, 3.5), (100, 3)]},
 ]
 
+MUC_TIEU_CA_NHAN_STAGES = [
+    {"key": "Chakki", "ten": "1. Chakki", "mau": "do"},
+    {"key": "Tư vấn hình", "ten": "2. Tư vấn hình", "mau": "xanh"},
+    {"key": "Tư vấn, BB", "ten": "3. Tư vấn, BB", "mau": "do"},
+    {"key": "Center", "ten": "4. Center", "mau": "xanh"},
+]
+PERSONAL_GOAL_TARGETS = {
+    "CIL Thanh": {"Tiếp cận": 5, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
+    "Nguyễn Thị Diệu Ngân": {"Tiếp cận": 13, "Chakki": 4, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
+    "Phạm Thị Thanh Thảo": {"Tiếp cận": 4, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
+    "Lê Nguyễn Quỳnh Như": {"Tiếp cận": 8, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
+    "Phạm Tường Vy": {"Tiếp cận": 12, "Chakki": 3, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
+    "Phạm Minh Phước": {"Tiếp cận": 12, "Chakki": 3, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
+    "Nguyễn Huỳnh Đức": {"Tiếp cận": 8, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
+    "Phạm Trịnh Khánh An": {"Tiếp cận": 8, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
+}
+CURRENT_KGT_YEAR = datetime.now().year
+PERSONAL_GOAL_TARGETS_BY_KGT = {
+    f"KGT-{CURRENT_KGT_YEAR}-10": PERSONAL_GOAL_TARGETS
+}
+KGT_OPTIONS = [
+    f"KGT-{year}-{month:02d}"
+    for year in range(CURRENT_KGT_YEAR, CURRENT_KGT_YEAR + app.config["KGT_YEAR_COUNT"])
+    for month in range(1, 13)
+]
+
+
+def kgt_label(value):
+    normalized = _normalise_kgt(value)
+    if not normalized:
+        return str(value or "")
+    match = re.match(r"KGT-(\d{4})-(\d{2})$", normalized)
+    if match:
+        return f"KGT tháng {int(match.group(2))}/{match.group(1)}"
+    return normalized
+
+
+def get_launch_schedule_data():
+    try:
+        rows = sheets_client.get_rows(
+            app.config["LICH_KHAI_GIANG_TAB"], HEADERS_LICH_KHAI_GIANG
+        )
+    except Exception as exc:
+        print(f"Lỗi khi đọc lịch trình khai giảng: {exc}")
+        rows = []
+
+    schedules = {kgt: {"kgt": kgt, "date": "", "weeks": []} for kgt in KGT_OPTIONS}
+    for row in rows:
+        kgt = _normalise_kgt(row.get("KGT"))
+        if kgt not in schedules:
+            continue
+        schedule = schedules[kgt]
+        schedule["date"] = str(row.get("Ngày khai giảng") or schedule["date"]).strip()
+        if any(str(row.get(field) or "").strip() for field in ("Tuần", "Khoảng thời gian", "Sự kiện", "Mục tiêu")):
+            schedule["weeks"].append({
+                "week": str(row.get("Tuần") or "").strip(),
+                "period": str(row.get("Khoảng thời gian") or "").strip(),
+                "event": str(row.get("Sự kiện") or "").strip(),
+                "goal": str(row.get("Mục tiêu") or "").strip(),
+            })
+    return [schedules[kgt] for kgt in KGT_OPTIONS]
+
+
+def _goal_number(value):
+    try:
+        return max(0, int(float(str(value or "0").replace(",", "."))))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _goal_amount(value, stage_key):
+    if stage_key != "Tư vấn, BB":
+        return _goal_number(value)
+    try:
+        return max(0, float(str(value or "0").replace(",", ".")))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _normalise_kgt(value, default=None):
+    text = str(value or "").strip()
+    full_match = re.search(r"KGT\s*[-/]?\s*(\d{4})\s*[-/]\s*(\d{1,2})", text, re.IGNORECASE)
+    if full_match:
+        return f"KGT-{int(full_match.group(1))}-{int(full_match.group(2)):02d}"
+    month_match = re.search(r"KGT\s*[- ]?(\d{1,2})\b", text, re.IGNORECASE)
+    if month_match:
+        return f"KGT-{CURRENT_KGT_YEAR}-{int(month_match.group(1)):02d}"
+    return default
+
+
+def get_personal_goal_data():
+    source_name = "Bảng thông tin trái quả"
+    reference_rows = []
+    try:
+        source_rows = sheets_client.list_master_rows(app.config["MASTER_SHEET_TAB"])
+    except Exception as exc:
+        print(f"Lỗi khi đọc dữ liệu trái từ bảng tổng: {exc}")
+        source_rows = []
+    try:
+        reference_rows = sheets_client.get_rows(
+            app.config["MUC_TIEU_CA_NHAN_TAB"], HEADERS_MUC_TIEU_CA_NHAN
+        )
+    except Exception as personal_exc:
+        print(f"Lỗi khi đọc dữ liệu mục tiêu cá nhân tham khảo: {personal_exc}")
+
+    reference_totals = {}
+    reference_fields = ("Tiếp cận", "Chakki", "Tư vấn hình", "Tư vấn, BB", "Center")
+    for row in reference_rows:
+        member = get_full_name(str(row.get("Thành viên") or "").strip())
+        kgt = _normalise_kgt(row.get("KGT"), default=f"KGT-{CURRENT_KGT_YEAR}-10")
+        if not member:
+            continue
+        key = (member, kgt)
+        if key not in reference_totals:
+            reference_totals[key] = {
+                "Thời gian nhập": row.get("Thời gian nhập", ""),
+                "Thành viên": member,
+                "KGT": kgt,
+                **{field: 0 for field in reference_fields},
+            }
+        reference_totals[key]["Thời gian nhập"] = row.get(
+            "Thời gian nhập", reference_totals[key]["Thời gian nhập"]
+        )
+        for field in reference_fields:
+            reference_totals[key][field] += _goal_number(row.get(field))
+    reference_rows = list(reference_totals.values())
+
+    member_names = [get_full_name(short_name) for short_name in app.config["NGUOI_NHAP_LIST"]]
+    totals = {name: {"Tiếp cận": 0, **{stage["key"]: 0 for stage in MUC_TIEU_CA_NHAN_STAGES}} for name in member_names}
+    kgt_totals = {
+        kgt: {
+            "approach": {name: 0 for name in member_names},
+            **{name: {stage["key"]: 0 for stage in MUC_TIEU_CA_NHAN_STAGES} for name in member_names},
+        }
+        for kgt in KGT_OPTIONS
+    }
+    detail_rows = {name: [] for name in member_names}
+    detail_kgt_rows = {kgt: {name: [] for name in member_names} for kgt in KGT_OPTIONS}
+    for reference in reference_rows:
+        member = reference["Thành viên"]
+        if member not in totals:
+            continue
+        kgt = reference["KGT"]
+        if kgt and kgt not in kgt_totals:
+            kgt_totals[kgt] = {
+                "approach": {name: 0 for name in member_names},
+                **{name: {stage["key"]: 0 for stage in MUC_TIEU_CA_NHAN_STAGES} for name in member_names},
+            }
+            detail_kgt_rows[kgt] = {name: [] for name in member_names}
+        approach = _goal_number(reference.get("Tiếp cận"))
+        totals[member]["Tiếp cận"] += approach
+        if kgt in kgt_totals:
+            kgt_totals[kgt]["approach"][member] += approach
+
+    for row in source_rows:
+        raw_member = (row.get("NDD") or row.get("Thành viên") or "").strip()
+        member = get_full_name(raw_member)
+        if member not in totals:
+            continue
+        kgt = _normalise_kgt(row.get("Mục tiêu tháng") or row.get("KGT"))
+        if kgt and kgt not in kgt_totals:
+            kgt_totals[kgt] = {
+                "approach": {name: 0 for name in member_names},
+                **{name: {stage["key"]: 0 for stage in MUC_TIEU_CA_NHAN_STAGES} for name in member_names},
+            }
+            detail_kgt_rows[kgt] = {name: [] for name in member_names}
+        stage_value = re.sub(r"\s+", " ", str(row.get("Giai đoạn", "")).strip().lower())
+        stage_value = re.sub(r"^0\.\s*", "0.", stage_value)
+        excluded_stage_prefixes = (
+            "0.cần khai thác thêm",
+            "0.1",
+        )
+        if stage_value.startswith(excluded_stage_prefixes):
+            totals[member]["Tiếp cận"] += 1
+            if kgt in kgt_totals:
+                kgt_totals[kgt]["approach"][member] += 1
+            continue
+        stage_aliases = {
+            "Chakki": ("chakki",),
+            "Tư vấn hình": ("tư vấn hình", "tu van hinh", "tvh"),
+            "Tư vấn, BB": ("tư vấn, bb", "tư vấn bb", "tv, bb", "tv bb", "tv/bb", "tv,bb"),
+            "Center": ("center",),
+        }
+        stage = next(
+            (
+                item for item in MUC_TIEU_CA_NHAN_STAGES
+                if any(alias in stage_value for alias in stage_aliases[item["key"]])
+            ),
+            None,
+        )
+        if stage:
+            totals[member][stage["key"]] += 1
+            if kgt in kgt_totals:
+                kgt_totals[kgt][member][stage["key"]] += 1
+            if stage["key"] in {"Chakki", "Tư vấn hình"}:
+                totals[member]["Tiếp cận"] += 1
+                if kgt in kgt_totals:
+                    kgt_totals[kgt]["approach"][member] += 1
+            detail = {
+                "name": str(row.get("Tên") or "Trái chưa đặt tên").strip(),
+                "stage": stage["ten"],
+                "kgt": kgt or "Chưa xác định",
+                "date": str(row.get("Ngày chakki") or "").strip(),
+                "recordId": str(row.get("Record_ID") or "").strip(),
+            }
+            detail_rows[member].append(detail)
+            if kgt in detail_kgt_rows:
+                detail_kgt_rows[kgt][member].append(detail)
+
+    chart_rows = [
+        {
+            "member": member,
+            "approach": totals[member]["Tiếp cận"],
+            "details": detail_rows[member],
+            "values": [totals.get(member, {}).get(stage["key"], 0) for stage in MUC_TIEU_CA_NHAN_STAGES],
+        }
+        for member in member_names
+    ]
+    kgt_rows = {
+        kgt: [
+            {
+                "member": member,
+                "approach": kgt_totals[kgt]["approach"].get(member, 0),
+                "details": detail_kgt_rows[kgt][member],
+                "values": [kgt_totals[kgt].get(member, {}).get(stage["key"], 0) for stage in MUC_TIEU_CA_NHAN_STAGES],
+            }
+            for member in member_names
+        ]
+        for kgt in KGT_OPTIONS
+    }
+    return member_names, chart_rows, kgt_rows, source_name, PERSONAL_GOAL_TARGETS_BY_KGT, reference_rows
+
+
+def sync_goal_comparison_sheet(kgt_rows, goal_targets):
+    rows = []
+    for kgt, kgt_members in kgt_rows.items():
+        targets = goal_targets.get(kgt, {})
+        for item in kgt_members:
+            target = targets.get(item["member"], {})
+            values = item["values"]
+            rows.append([
+                kgt,
+                item["member"],
+                target.get("Tiếp cận", 0),
+                item.get("approach", 0),
+                target.get("Chakki", 0),
+                values[0],
+                target.get("Tư vấn hình", 0),
+                values[1],
+                target.get("Tư vấn, BB", 0),
+                values[2],
+                values[3],
+            ])
+    try:
+        sheets_client.replace_rows(
+            app.config["DOI_CHIEU_MUC_TIEU_TAB"],
+            HEADERS_DOI_CHIEU_MUC_TIEU,
+            rows,
+        )
+    except Exception as exc:
+        print(f"Lỗi khi đồng bộ tab đối chiếu mục tiêu: {exc}")
+
+
+def get_goal_comparison_data(fallback_rows, fallback_targets):
+    comparison_rows = {kgt: [] for kgt in KGT_OPTIONS}
+    comparison_targets = {kgt: {} for kgt in KGT_OPTIONS}
+    try:
+        sheet_rows = sheets_client.get_rows(
+            app.config["DOI_CHIEU_MUC_TIEU_TAB"], HEADERS_DOI_CHIEU_MUC_TIEU
+        )
+    except Exception as exc:
+        print(f"Lỗi khi đọc tab đối chiếu mục tiêu: {exc}")
+        return fallback_rows, fallback_targets
+
+    for row in sheet_rows:
+        kgt = _normalise_kgt(row.get("KGT"))
+        member = get_full_name(str(row.get("Thành viên") or "").strip())
+        if not kgt or not member:
+            continue
+        comparison_rows.setdefault(kgt, []).append({
+            "member": member,
+            "approach": _goal_number(row.get("Tiếp cận thực tế")),
+            "details": [],
+            "values": [
+                _goal_number(row.get("Chakki thực tế")),
+                _goal_number(row.get("Tư vấn hình thực tế")),
+                _goal_number(row.get("Tư vấn, BB thực tế")),
+                _goal_number(row.get("Center thực tế")),
+            ],
+        })
+        comparison_targets.setdefault(kgt, {})[member] = {
+            "Tiếp cận": _goal_number(row.get("Tiếp cận mục tiêu")),
+            "Chakki": _goal_number(row.get("Chakki mục tiêu")),
+            "Tư vấn hình": _goal_number(row.get("Tư vấn hình mục tiêu")),
+            "Tư vấn, BB": _goal_amount(row.get("Tư vấn, BB mục tiêu"), "Tư vấn, BB"),
+        }
+
+    if not any(comparison_rows.values()):
+        return fallback_rows, fallback_targets
+    return comparison_rows, comparison_targets
+
 
 @app.context_processor
 def inject_globals():
     # Có sẵn ở MỌI template: link xem Sheet chi tiết + danh sách người nhập
     return {
         "sheet_view_url": app.config["GOOGLE_SHEET_VIEW_URL"],
+        "goal_sheet_view_url": app.config["GOAL_SHEET_VIEW_URL"],
         "nguoi_nhap_options": app.config["NGUOI_NHAP_LIST"],
+        "kgt_options": KGT_OPTIONS,
+        "kgt_years": sorted({int(kgt.split("-")[1]) for kgt in KGT_OPTIONS}),
+        "current_kgt": f"KGT-{CURRENT_KGT_YEAR}-10",
+        "kgt_label": kgt_label,
     }
 
 
@@ -301,6 +616,14 @@ def muc_tieu_to():
     )
 
 
+@app.route("/lich-trinh-khai-giang")
+def lich_trinh_khai_giang():
+    return render_template(
+        "lich_trinh_khai_giang.html",
+        schedules=get_launch_schedule_data(),
+    )
+
+
 @app.route("/api/muc-tieu-to")
 def api_muc_tieu_to():
     """API endpoint trả về dữ liệu mục tiêu dưới dạng JSON để AJAX fetch."""
@@ -315,6 +638,82 @@ def api_muc_tieu_to():
     return jsonify({
         "groups": MUC_TIEU_TO_GROUPS,
         "rows": MUC_TIEU_TO_ROWS,
+    })
+
+
+@app.route("/muc-tieu-ca-nhan", methods=["GET", "POST"])
+def muc_tieu_ca_nhan():
+    members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
+    if request.method == "POST":
+        member = request.form.get("thanh_vien", "").strip()
+        if member not in members:
+            flash("Vui lòng chọn đúng thành viên trong danh sách 8 người.", "error")
+            return render_template(
+                "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows, goal_targets=goal_targets, reference_rows=reference_rows,
+                source_name=source_name,
+                show_stats=False,
+                form_data=request.form,
+            )
+
+        row_dict = {
+            "Thành viên": member,
+            "KGT": _normalise_kgt(request.form.get("kgt"), default=f"KGT-{CURRENT_KGT_YEAR}-10"),
+            "Tiếp cận": _goal_number(request.form.get("tiep_can")),
+            "Chakki": _goal_number(request.form.get("chakki")),
+            "Tư vấn hình": _goal_number(request.form.get("tu_van_hinh")),
+            "Tư vấn, BB": _goal_number(request.form.get("tu_van_bb")),
+            "Center": _goal_number(request.form.get("center")),
+        }
+        try:
+            sheets_client.append_row(
+                app.config["MUC_TIEU_CA_NHAN_TAB"], HEADERS_MUC_TIEU_CA_NHAN, row_dict
+            )
+        except Exception as exc:
+            flash(f"Có lỗi khi lưu mục tiêu cá nhân: {exc}", "error")
+            return render_template(
+                "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows, goal_targets=goal_targets, reference_rows=reference_rows,
+                source_name=source_name,
+                show_stats=False,
+                form_data=request.form,
+            )
+
+        total = row_dict["Tiếp cận"] + sum(row_dict[stage["key"]] for stage in MUC_TIEU_CA_NHAN_STAGES)
+        if total:
+            flash(f"Chúc mừng {member}, bạn đã thêm {total} trái được duyệt! Hãy tiếp tục phát huy nhé.", "success")
+        else:
+            flash("Lần này bạn chưa thêm được trái nào, nhưng đừng nản nhé. Đây chỉ là một lần chưa đạt, hãy tiếp tục cố gắng vì mỗi bước nhỏ đều đáng giá!", "success")
+        return redirect(url_for("muc_tieu_ca_nhan"))
+
+    return render_template(
+        "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows, goal_targets=goal_targets, reference_rows=reference_rows,
+        source_name=source_name, show_stats=False, form_data={}
+    )
+
+
+@app.route("/thong-so-ca-nhan")
+def thong_so_ca_nhan():
+    members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
+    sync_goal_comparison_sheet(kgt_rows, goal_targets)
+    comparison_rows, comparison_targets = get_goal_comparison_data(kgt_rows, goal_targets)
+    return render_template(
+        "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows,
+        source_name=source_name, show_stats=True, form_data={}, goal_targets=goal_targets,
+        comparison_rows=comparison_rows, comparison_targets=comparison_targets
+    )
+
+
+@app.route("/api/muc-tieu-ca-nhan")
+def api_muc_tieu_ca_nhan():
+    members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
+    return jsonify({
+        "stages": MUC_TIEU_CA_NHAN_STAGES,
+        "members": members,
+        "rows": chart_rows,
+        "kgtRows": kgt_rows,
+        "kgtOptions": KGT_OPTIONS,
+        "targets": goal_targets,
+        "source": source_name,
+        "referenceRows": reference_rows,
     })
 
 

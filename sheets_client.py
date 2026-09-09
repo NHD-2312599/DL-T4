@@ -75,6 +75,40 @@ HEADERS_TAO_XANH = [
     "Record_ID",
 ]
 
+HEADERS_MUC_TIEU_CA_NHAN = [
+    "Thời gian nhập",
+    "Thành viên",
+    "KGT",
+    "Tiếp cận",
+    "Chakki",
+    "Tư vấn hình",
+    "Tư vấn, BB",
+    "Center",
+]
+
+HEADERS_LICH_KHAI_GIANG = [
+    "KGT",
+    "Ngày khai giảng",
+    "Tuần",
+    "Khoảng thời gian",
+    "Sự kiện",
+    "Mục tiêu",
+]
+
+HEADERS_DOI_CHIEU_MUC_TIEU = [
+    "KGT",
+    "Thành viên",
+    "Tiếp cận mục tiêu",
+    "Tiếp cận thực tế",
+    "Chakki mục tiêu",
+    "Chakki thực tế",
+    "Tư vấn hình mục tiêu",
+    "Tư vấn hình thực tế",
+    "Tư vấn, BB mục tiêu",
+    "Tư vấn, BB thực tế",
+    "Center thực tế",
+]
+
 
 class SheetsClient:
     def __init__(self, credentials_path, sheet_id):
@@ -133,8 +167,31 @@ class SheetsClient:
         """
         ws = self._get_or_create_tab(tab_name, headers)
         row_dict = {"Thời gian nhập": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), **row_dict}
-        row = [row_dict.get(h, "") for h in headers]
+        sheet_headers = ws.row_values(1)
+        row = [row_dict.get(h, "") for h in sheet_headers]
         ws.append_row(row, value_input_option="USER_ENTERED")
+        return True
+
+    def get_rows(self, tab_name, headers):
+        """Read rows from a tab, creating it with headers when it does not exist."""
+        ws = self._get_or_create_tab(tab_name, headers)
+        values = ws.get_all_values()
+        if len(values) < 2:
+            return []
+        return [
+            dict(zip(values[0], values_row))
+            for values_row in values[1:]
+            if any(str(cell).strip() for cell in values_row)
+        ]
+
+    def replace_rows(self, tab_name, headers, rows):
+        """Replace a generated report tab without accumulating duplicate rows."""
+        ws = self._get_or_create_tab(tab_name, headers)
+        ws.clear()
+        ws.append_row(headers, value_input_option="USER_ENTERED")
+        if rows:
+            ws.append_rows(rows, value_input_option="USER_ENTERED")
+        ws.freeze(rows=1)
         return True
 
     def create_record_id(self, tab_name, headers):

@@ -36,8 +36,8 @@
         </label>
         <label class="field"><span class="field-label">Mục tiêu tháng</span>
           <select name="muc_tieu_thang">
-            {% for option in ['KGT1', 'KGT2', 'KGT3', 'KGT4', 'KGT5', 'KGT6', 'KGT7', 'KGT8', 'KGT9', 'KGT10', 'KGT11', 'KGT12', 'Mục tiêu tháng'] %}
-            <option value="{{ option }}" {{ 'selected' if master_data.get('Mục tiêu tháng') == option else '' }}>{{ option }}</option>
+            {% for option in kgt_options %}
+            <option value="{{ option }}" {{ 'selected' if master_data.get('Mục tiêu tháng') == option else '' }}>{{ kgt_label(option) }}</option>
             {% endfor %}
           </select>
         </label>
