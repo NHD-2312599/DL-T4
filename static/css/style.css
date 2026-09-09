@@ -565,27 +565,27 @@ thead .goal-col-tuan{ z-index: 3; }
 }
 .personal-stats-section .panel-heading h2{ font-size:clamp(28px, 4vw, 38px); margin-top:6px; }
 .personal-stats-section .panel-kicker{ color:var(--do-toi); }
-.personal-overview{ gap:12px; }
+.personal-overview{ gap:12px; margin-bottom:18px; }
 .overview-card{
-  min-height:142px;
-  padding:20px 22px;
+  min-height:118px;
+  padding:16px 18px;
   border-radius:12px;
   box-shadow:0 8px 24px rgba(46,74,58,.07);
   transition:transform .2s ease, box-shadow .2s ease;
 }
 .overview-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-lift); }
-.overview-value{ font-size:36px; margin:16px 0 6px; }
-.overview-value-name{ font-size:20px; }
-.overview-card-stages{ padding-bottom:16px; }
+.overview-value{ font-size:32px; margin:12px 0 5px; }
+.overview-value-name{ font-size:18px; }
+.overview-card-stages{ padding-bottom:12px; }
 .goal-progress-panel,
 .chart-panel,
 .personal-table-wrap{
   border-color:rgba(226,216,194,.9);
   box-shadow:0 8px 26px rgba(46,74,58,.065);
 }
-.goal-progress-panel{ margin-top:22px; background:rgba(255,255,255,.78); }
+.goal-progress-panel{ margin-top:18px; background:rgba(255,255,255,.78); }
 .goal-progress-panel .ranking-heading,
-.personal-table-wrap .ranking-heading{ padding:20px 22px 16px; }
+.personal-table-wrap .ranking-heading{ padding:16px 18px 13px; }
 .goal-progress-panel .ranking-heading{ position:relative; padding-right:58px; }
 .goal-progress-heading-content{ min-width:0; }
 .goal-progress-filter{ display:grid; grid-template-columns:auto 92px auto 118px; align-items:center; gap:7px; color:var(--than-nhat); font:10px var(--font-mono); letter-spacing:.08em; text-transform:uppercase; }
@@ -606,8 +606,8 @@ thead .goal-col-tuan{ z-index: 3; }
 .goal-progress-grid{ padding:0 14px 14px; gap:8px; }
 .goal-progress-row{
   grid-template-columns:190px minmax(0,1fr);
-  gap:24px;
-  padding:15px 14px;
+  gap:20px;
+  padding:12px 14px;
   border:1px solid transparent;
   border-radius:10px;
   background:#FFFCF6;
@@ -615,16 +615,16 @@ thead .goal-col-tuan{ z-index: 3; }
 .goal-progress-row:nth-child(even){ background:#F8F3E9; }
 .goal-progress-row:hover{ border-color:var(--line); }
 .goal-progress-row h4{ font-size:13px; }
-.goal-progress-cells{ gap:18px; }
+.goal-progress-cells{ gap:14px; }
 .goal-progress-top{ font-size:11px; }
 .goal-progress-track{ height:8px; background:#EDE5D5; }
 .goal-progress-track span{ background:linear-gradient(90deg, var(--xanh), #8AA969); }
 .goal-progress-cell small{ font-size:10px; }
-.stats-grid{ gap:20px; margin-top:22px; }
-.chart-panel{ padding:24px 24px 22px; border-radius:12px; }
+.stats-grid{ gap:18px; margin-top:18px; }
+.chart-panel{ padding:20px 20px 18px; border-radius:12px; }
 .chart-panel h3{ font-size:22px; }
-.chart-wrap{ height:370px; margin-top:22px; }
-.chart-wrap-pie{ height:330px; margin-top:8px; }
+.chart-wrap{ height:310px; margin-top:18px; }
+.chart-wrap-pie{ height:280px; margin-top:6px; }
 .chart-control{ background:#F7F0E3; border-color:#E4D9C4; }
 .chart-panel-wide .chart-panel-head{
   display:grid;
@@ -640,9 +640,9 @@ thead .goal-col-tuan{ z-index: 3; }
   min-width:0;
 }
 .chart-panel-wide .chart-wrap{ margin-top:18px; }
-.personal-table-wrap{ margin-top:22px; }
-.personal-table th, .personal-table td{ padding:14px 16px; }
-.personal-table thead th{ height:48px; }
+.personal-table-wrap{ margin-top:18px; }
+.personal-table th, .personal-table td{ padding:11px 13px; }
+.personal-table thead th{ height:42px; }
 
 .personal-goal-section{ padding-top:30px; }
 .personal-goal-grid{ grid-template-columns:minmax(0,1.08fr) minmax(380px,.92fr); gap:20px; }
