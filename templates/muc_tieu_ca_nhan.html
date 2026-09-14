@@ -74,7 +74,6 @@
       <div>
         <span class="panel-kicker">04 · Tham khảo</span>
         <h2>Dữ liệu tự nguyện đã nhập</h2>
-        <p>Các số liệu dưới đây đã được cộng dồn theo thành viên và kỳ khai giảng, chỉ mang tính tham khảo và không được dùng để cập nhật phần đối chiếu trong Thông số.</p>
       </div>
     </div>
     <div class="personal-table-wrap personal-reference-table-wrap">
@@ -185,6 +184,12 @@
               <option value="2">3. Tư vấn, BB</option>
               <option value="3">4. Center</option>
             </select>
+            <label class="chart-select-label" for="statusChartSelect">Trạng thái</label>
+            <select id="statusChartSelect">
+              <option value="alive">Alive</option>
+              <option value="drop">Drop</option>
+              <option value="all" selected>Alive + Drop</option>
+            </select>
           </div>
         </div>
         <div class="chart-wrap"><canvas id="memberBarChart"></canvas></div>
@@ -246,6 +251,7 @@ const memberSelect = document.getElementById('memberChartSelect');
 const yearSelect = document.getElementById('kgtYearSelect');
 const kgtSelect = document.getElementById('kgtChartSelect');
 const stageSelect = document.getElementById('stageChartSelect');
+const statusSelect = document.getElementById('statusChartSelect');
 const barChartTitle = document.getElementById('barChartTitle');
 const tableBody = document.getElementById('personalTableBody');
 const overallTotal = document.getElementById('overallTotal');
@@ -303,13 +309,21 @@ function selectedKgtKeys() {
   });
 }
 
+function filteredRow(row) {
+  const status = statusSelect.value;
+  if (status === 'all') return row;
+  const details = (row.details || []).filter(detail => (detail.status || 'alive') === status);
+  const values = personalGoalData.stages.map((stage, index) => details.filter(detail => detail.stage.startsWith(`${index + 1}.`)).length);
+  return { ...row, details, values };
+}
+
 function currentRows() {
   const keys = selectedKgtKeys();
-  if (!keys.length || (yearSelect.value === 'all' && kgtSelect.value === 'all')) return personalGoalData.rows;
-  if (keys.length === 1) return personalGoalData.kgtRows[keys[0]];
+  if (!keys.length || (yearSelect.value === 'all' && kgtSelect.value === 'all')) return personalGoalData.rows.map(filteredRow);
+  if (keys.length === 1) return personalGoalData.kgtRows[keys[0]].map(filteredRow);
 
   return personalGoalData.rows.map(baseRow => {
-    const matchingRows = keys.map(key => personalGoalData.kgtRows[key].find(row => row.member === baseRow.member)).filter(Boolean);
+    const matchingRows = keys.map(key => personalGoalData.kgtRows[key].find(row => row.member === baseRow.member)).filter(Boolean).map(filteredRow);
     return {
       ...baseRow,
       approach: matchingRows.reduce((sum, row) => sum + Number(row.approach || 0), 0),
@@ -394,7 +408,7 @@ function renderTable(rows) {
 
 function renderGoalProgress() {
   const comparisonKgt = `KGT-${goalYearSelect.value}-${goalKgtSelect.value}`;
-  const comparisonRows = personalGoalData.comparisonRows[comparisonKgt] || [];
+  const comparisonRows = (personalGoalData.kgtRows[comparisonKgt] || personalGoalData.comparisonRows[comparisonKgt] || []).map(filteredRow);
   const targets = personalGoalData.comparisonTargetsByKgt[comparisonKgt] || {};
   const progressStages = [
     ['Tiếp cận', row => row.approach || 0],
@@ -413,8 +427,11 @@ function renderGoalProgress() {
       const actual = Number(getActual(row) || 0);
       const percent = goal ? Math.round((actual / goal) * 100) : 0;
       const actualLabel = label === 'Tư vấn, BB' ? `${actual} điểm` : actual;
+      const approachControls = label === 'Tiếp cận'
+        ? `<div class="approach-controls"><button type="button" class="approach-button" data-member="${row.member}" data-kgt="${comparisonKgt}" data-delta="-1" aria-label="Giảm Tiếp cận">−</button><button type="button" class="approach-button" data-member="${row.member}" data-kgt="${comparisonKgt}" data-delta="1" aria-label="Tăng Tiếp cận">+</button></div>`
+        : '';
       return `<div class="goal-progress-cell">
-        <div class="goal-progress-top"><span>${label}</span><strong>${actualLabel}/${goal}</strong></div>
+        <div class="goal-progress-top"><span>${label} ${approachControls}</span><strong>${actualLabel}/${goal}</strong></div>
         <div class="goal-progress-track"><span style="width:${Math.min(100, percent)}%"></span></div>
         <small>${percent}%</small>
       </div>`;
@@ -543,8 +560,37 @@ memberSelect.addEventListener('change', renderCharts);
 yearSelect.addEventListener('change', () => { syncKgtMonths(); renderCharts(); });
 kgtSelect.addEventListener('change', renderCharts);
 stageSelect.addEventListener('change', renderCharts);
+statusSelect.addEventListener('change', renderCharts);
 goalYearSelect.addEventListener('change', renderGoalProgress);
 goalKgtSelect.addEventListener('change', renderGoalProgress);
+goalProgressGrid.addEventListener('click', async event => {
+  const button = event.target.closest('.approach-button');
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  try {
+    const response = await fetch('{{ url_for("api_update_tiep_can") }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ member: button.dataset.member, kgt: button.dataset.kgt, delta: Number(button.dataset.delta) })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Không thể cập nhật Tiếp cận.');
+    const kgtRows = personalGoalData.kgtRows[result.kgt] || [];
+    const row = kgtRows.find(item => item.member === result.member);
+    if (row) row.approach = result.approach;
+    personalGoalData.rows.forEach(baseRow => {
+      baseRow.approach = Object.values(personalGoalData.kgtRows)
+        .flat()
+        .filter(item => item.member === baseRow.member)
+        .reduce((sum, item) => sum + Number(item.approach || 0), 0);
+    });
+    renderCharts();
+  } catch (error) {
+    window.alert(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
 goalProgressToggle.addEventListener('click', () => {
   const isExpanded = goalProgressToggle.getAttribute('aria-expanded') === 'true';
   goalProgressToggle.setAttribute('aria-expanded', String(!isExpanded));

@@ -339,6 +339,13 @@ def _goal_number(value):
         return 0
 
 
+def _goal_delta(value):
+    try:
+        return int(float(str(value or "0").replace(",", ".")))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _goal_amount(value, stage_key):
     if stage_key != "Tư vấn, BB":
         return _goal_number(value)
@@ -346,6 +353,10 @@ def _goal_amount(value, stage_key):
         return max(0, float(str(value or "0").replace(",", ".")))
     except (TypeError, ValueError):
         return 0
+
+
+def _normalise_status(value):
+    return "drop" if str(value or "").strip().lower() == "drop" else "alive"
 
 
 def _normalise_kgt(value, default=None):
@@ -393,7 +404,9 @@ def get_personal_goal_data():
             "Thời gian nhập", reference_totals[key]["Thời gian nhập"]
         )
         for field in reference_fields:
-            reference_totals[key][field] += _goal_number(row.get(field))
+            reference_totals[key][field] += (
+                _goal_delta(row.get(field)) if field == "Tiếp cận" else _goal_number(row.get(field))
+            )
     reference_rows = list(reference_totals.values())
 
     member_names = [get_full_name(short_name) for short_name in app.config["NGUOI_NHAP_LIST"]]
@@ -407,6 +420,11 @@ def get_personal_goal_data():
     }
     detail_rows = {name: [] for name in member_names}
     detail_kgt_rows = {kgt: {name: [] for name in member_names} for kgt in KGT_OPTIONS}
+    for (member, kgt), reference in reference_totals.items():
+        totals.setdefault(member, {"Tiếp cận": 0, **{stage["key"]: 0 for stage in MUC_TIEU_CA_NHAN_STAGES}})
+        totals[member]["Tiếp cận"] += reference["Tiếp cận"]
+        if kgt in kgt_totals:
+            kgt_totals[kgt]["approach"][member] += reference["Tiếp cận"]
     for row in source_rows:
         raw_member = (row.get("NDD") or row.get("Thành viên") or "").strip()
         member = get_full_name(raw_member)
@@ -450,6 +468,7 @@ def get_personal_goal_data():
                 "kgt": kgt or "Chưa xác định",
                 "date": str(row.get("Ngày chakki") or "").strip(),
                 "recordId": str(row.get("Record_ID") or "").strip(),
+                "status": _normalise_status(row.get("Trạng thái")),
             }
             detail_rows[member].append(detail)
             if kgt in detail_kgt_rows:
@@ -670,11 +689,10 @@ def muc_tieu_ca_nhan():
 @app.route("/thong-so-ca-nhan")
 def thong_so_ca_nhan():
     members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
-    comparison_rows, comparison_targets = get_goal_comparison_data(kgt_rows, goal_targets)
     return render_template(
         "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows,
         source_name=source_name, show_stats=True, form_data={}, goal_targets=goal_targets,
-        comparison_rows=comparison_rows, comparison_targets=comparison_targets
+        comparison_rows=kgt_rows, comparison_targets=goal_targets
     )
 
 
@@ -691,6 +709,42 @@ def api_muc_tieu_ca_nhan():
         "source": source_name,
         "referenceRows": reference_rows,
     })
+
+
+@app.route("/api/muc-tieu-ca-nhan/tiep-can", methods=["POST"])
+def api_update_tiep_can():
+    payload = request.get_json(silent=True) or {}
+    member = str(payload.get("member") or "").strip()
+    kgt = _normalise_kgt(payload.get("kgt"))
+    try:
+        delta = int(payload.get("delta"))
+    except (TypeError, ValueError):
+        delta = 0
+
+    members = [get_full_name(short_name) for short_name in app.config["NGUOI_NHAP_LIST"]]
+    if member not in members or not kgt or delta not in (-1, 1):
+        return jsonify({"error": "Thông tin cập nhật không hợp lệ."}), 400
+
+    try:
+        rows = sheets_client.get_rows(
+            app.config["MUC_TIEU_CA_NHAN_TAB"], HEADERS_MUC_TIEU_CA_NHAN
+        )
+        current = sum(
+            _goal_delta(row.get("Tiếp cận"))
+            for row in rows
+            if get_full_name(str(row.get("Thành viên") or "").strip()) == member
+            and _normalise_kgt(row.get("KGT")) == kgt
+        )
+        if delta < 0 and current == 0:
+            return jsonify({"error": "Tiếp cận đã là 0."}), 400
+        sheets_client.append_row(
+            app.config["MUC_TIEU_CA_NHAN_TAB"],
+            HEADERS_MUC_TIEU_CA_NHAN,
+            {"Thành viên": member, "KGT": kgt, "Tiếp cận": delta},
+        )
+        return jsonify({"member": member, "kgt": kgt, "approach": current + delta})
+    except Exception as exc:
+        return jsonify({"error": f"Không thể cập nhật Tiếp cận: {exc}"}), 500
 
 
 @app.route("/nhap-lieu")

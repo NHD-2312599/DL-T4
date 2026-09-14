@@ -522,6 +522,10 @@ thead .goal-col-tuan{ z-index: 3; }
 .goal-progress-track{ height:7px; margin-top:6px; background:var(--nen-2); border-radius:999px; overflow:hidden; }
 .goal-progress-track span{ display:block; height:100%; background:var(--xanh); border-radius:inherit; }
 .goal-progress-cell small{ display:block; margin-top:4px; color:var(--than-nhat); font:600 10px var(--font-mono); text-align:right; }
+.approach-controls{ display:inline-flex; gap:4px; margin-left:6px; vertical-align:middle; }
+.approach-button{ width:22px; height:22px; padding:0; border:1px solid var(--line); border-radius:6px; background:var(--trang); color:var(--than); font:700 15px/1 var(--font-body); cursor:pointer; }
+.approach-button:hover{ border-color:var(--xanh); color:var(--xanh); }
+.approach-button:disabled{ opacity:.5; cursor:wait; }
 
 @media (max-width: 700px){
   .goal-table-hint{ display: block; }
