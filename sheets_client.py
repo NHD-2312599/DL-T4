@@ -394,7 +394,6 @@ class SheetsClient:
         if target_row is None:
             raise ValueError(f"Không tìm thấy Record_ID trong bảng tổng: {record_id}")
 
-        self._copy_master_row_style(ws, target_row, len(headers))
         for header_name, value in fields.items():
             expected = self._normalise_header(header_name)
             matching_index = next(
