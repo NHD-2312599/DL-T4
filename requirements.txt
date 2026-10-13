@@ -3,3 +3,4 @@ gspread==6.1.2
 google-auth==2.32.0
 python-dotenv==1.0.1
 gunicorn==22.0.0
+psycopg[binary]==3.2.9

@@ -11,8 +11,8 @@
     <form method="POST" class="fruit-form" novalidate>
       {% if record_id %}<input type="hidden" name="record_id" value="{{ record_id }}">{% endif %}
 
-      <fieldset class="form-fieldset">
-        <legend>Thông tin người nhập</legend>
+      <details class="form-fieldset" open>
+        <summary>Thông tin người nhập</summary>
 
         <label class="field">
           <span class="field-label">Người nhập (NDD) <span class="req">*</span></span>
@@ -38,10 +38,10 @@
           <span class="field-label">Concept</span>
           <input type="text" name="concept" value="{{ form_data.get('concept','') }}" placeholder="Concept chakki">
         </label>
-      </fieldset>
+      </details>
 
-      <fieldset class="form-fieldset">
-        <legend>Thông tin trái</legend>
+      <details class="form-fieldset">
+        <summary>Thông tin trái</summary>
 
         <label class="field">
           <span class="field-label">1. Họ tên cá (Năm sinh) / Nam·Nữ</span>
@@ -78,10 +78,10 @@
           <span class="field-label">4. Nghề nghiệp / Nơi làm việc</span>
           <input type="text" name="nghe_nghiep" value="{{ form_data.get('nghe_nghiep','') }}">
         </label>
-      </fieldset>
+      </details>
 
-      <fieldset class="form-fieldset">
-        <legend>5. Tính cách</legend>
+      <details class="form-fieldset">
+        <summary>5. Tính cách</summary>
         <label class="field">
           <span class="field-label">Theo công cụ (TSH, hình vẽ,...)</span>
           <textarea name="tinh_cach_cong_cu" rows="2">{{ form_data.get('tinh_cach_cong_cu','') }}</textarea>
@@ -101,18 +101,18 @@
             </label>
           </div>
         </label>
-      </fieldset>
+      </details>
 
-      <fieldset class="form-fieldset">
-        <legend>6. Thần tính</legend>
+      <details class="form-fieldset">
+        <summary>6. Thần tính</summary>
         <label class="field">
           <span class="field-label">Có: Catholic / Church / Buddhism — Không: tin thần linh / không tin</span>
           <input type="text" name="than_tinh" value="{{ form_data.get('than_tinh','') }}" placeholder="VD: Không - không tin">
         </label>
-      </fieldset>
+      </details>
 
-      <fieldset class="form-fieldset form-fieldset-highlight">
-        <legend>Trọng tâm: 7. Hoàn cảnh</legend>
+      <details class="form-fieldset form-fieldset-highlight" open>
+        <summary>Trọng tâm: 7. Hoàn cảnh</summary>
         <label class="field">
           <span class="field-label"><strong>Hiện tại</strong> <span class="focus-note">(trọng tâm)</span></span>
           <textarea name="hoan_canh_hien_tai" rows="2">{{ form_data.get('hoan_canh_hien_tai','') }}</textarea>
@@ -121,10 +121,10 @@
           <span class="field-label"><strong>Kì nghỉ / Học kì</strong> <span class="focus-note">(trọng tâm)</span></span>
           <textarea name="hoan_canh_ki_nghi" rows="2">{{ form_data.get('hoan_canh_ki_nghi','') }}</textarea>
         </label>
-      </fieldset>
+      </details>
 
-      <fieldset class="form-fieldset">
-        <legend>8. Nỗi lo lắng</legend>
+      <details class="form-fieldset">
+        <summary>8. Nỗi lo lắng</summary>
         <label class="field">
           <span class="field-label">Nỗi lo lắng</span>
           <textarea name="noi_lo_lang" rows="2">{{ form_data.get('noi_lo_lang','') }}</textarea>
@@ -133,18 +133,18 @@
           <span class="field-label">Sự quan tâm (VD: xem kênh YouTube nào? Sở thích?)</span>
           <textarea name="su_quan_tam" rows="2">{{ form_data.get('su_quan_tam','') }}</textarea>
         </label>
-      </fieldset>
+      </details>
 
-      <fieldset class="form-fieldset">
-        <legend>Liên hệ</legend>
+      <details class="form-fieldset">
+        <summary>Liên hệ</summary>
         <label class="field">
           <span class="field-label">9. Số điện thoại</span>
           <input type="tel" name="so_dien_thoai" value="{{ form_data.get('so_dien_thoai','') }}" inputmode="tel">
         </label>
-      </fieldset>
+      </details>
 
-      <fieldset class="form-fieldset">
-        <legend>❌ Lý do bị loại (nếu có)</legend>
+      <details class="form-fieldset">
+        <summary>❌ Lý do bị loại (nếu có)</summary>
         <div class="checkbox-grid">
           {% for ly_do in ly_do_loai_options %}
           <label class="checkbox-chip">
@@ -154,7 +154,7 @@
           </label>
           {% endfor %}
         </div>
-      </fieldset>
+      </details>
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary btn-block">Lưu vào Google Sheet</button>

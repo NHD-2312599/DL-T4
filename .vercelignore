@@ -1,0 +1,8 @@
+.env
+.venv
+venv
+__pycache__
+instance
+member_accounts.json
+credentials.json
+dlt4/credentials.json

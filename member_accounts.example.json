@@ -1,0 +1,50 @@
+{
+  "accounts": [
+    {
+      "username": "ct",
+      "member_code": "CT",
+      "password_hash": "0123456789"
+    },
+    {
+      "username": "ntdn",
+      "member_code": "NTDN",
+      "password_hash": "0123456789"
+    },
+    {
+      "username": "pttt",
+      "member_code": "PTTT",
+      "password_hash": "0123456789"
+    },
+    {
+      "username": "lnqn",
+      "member_code": "LNQN",
+      "password_hash": "0123456789"
+    },
+    {
+      "username": "ptv",
+      "member_code": "PTV",
+      "password_hash": "0123456789"
+    },
+    {
+      "username": "pmp",
+      "member_code": "PMP",
+      "password_hash": "0123456789"
+    },
+    {
+      "username": "nhđ",
+      "member_code": "NHĐ",
+      "password_hash": "0123456789"
+    },
+    {
+      "username": "ptka",
+      "member_code": "PTKA",
+      "password_hash": "0123456789"
+    },
+    {
+      "username": "admin",
+      "member_code": "admin",
+      "role": "admin",
+      "password_hash": "colennhe"
+    }
+  ]
+}

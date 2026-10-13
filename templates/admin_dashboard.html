@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Tổng quan thành viên — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="page-head admin-page-head">
+  <div class="section-inner">
+    <p class="eyebrow">🌿 KHÔNG GIAN QUẢN TRỊ</p>
+    <h1 class="page-title">Cùng nhìn hành trình của đội</h1>
+    <p class="page-sub">Theo dõi từng bước của 8 thành viên, không xếp hạng — mỗi người có nhịp đi riêng.</p>
+    <div class="admin-period-bar">
+      <div class="admin-period-copy"><span class="panel-kicker">Kỳ đang xem</span><strong>{{ kgt_label(selected_kgt) }}</strong></div>
+      <form method="GET" action="{{ url_for('admin_dashboard') }}" class="admin-period-form">
+        <label for="adminKgt">Chọn kỳ</label>
+        <select id="adminKgt" name="kgt">
+          {% for kgt in kgt_options %}<option value="{{ kgt }}" {{ 'selected' if kgt == selected_kgt else '' }}>{{ kgt_label(kgt) }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="admin-period-button">Xem kỳ này</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="section admin-dashboard-section">
+  <div class="section-inner">
+    <div class="admin-encouragement"><span aria-hidden="true">💛</span><p><strong>{{ active_members }}/{{ cards|length }} thành viên đã có cập nhật trong kỳ.</strong> Những bước nhỏ đều đáng được ghi nhận — không xếp hạng, chỉ cùng nhìn lại hành trình.</p></div>
+
+    <div class="admin-total-grid" aria-label="Tiến độ chung của kỳ">
+      {% for label, value in totals.items() %}
+      <article class="admin-total-card admin-total-card-{{ loop.index0 }}">
+        <span>{{ label }}</span>
+        <strong>{{ value }}</strong>
+        <small>Đã ghi nhận trong kỳ</small>
+      </article>
+      {% endfor %}
+    </div>
+
+    <div class="admin-members-heading">
+      <div><span class="panel-kicker">TỪNG THÀNH VIÊN</span><h2>Mỗi người một hành trình</h2></div>
+      <span class="admin-member-count">{{ cards|length }} hồ sơ</span>
+    </div>
+
+    <div class="admin-member-grid">
+      {% for card in cards %}
+      <article class="admin-member-card">
+        <header class="admin-member-card-head">
+          <div class="admin-member-avatar" aria-hidden="true">{{ card.member[:1] }}</div>
+          <div class="admin-member-identity"><h3>{{ card.member }}</h3><span>{{ kgt_label(selected_kgt) }}</span></div>
+          <span class="admin-progress-status {{ 'has-progress' if card.has_progress else '' }}">{{ 'Có cập nhật' if card.has_progress else 'Chưa có số liệu' }}</span>
+        </header>
+        <div class="admin-member-metrics">
+          {% for metric in card.metrics %}
+          <div class="admin-member-metric">
+            <div class="admin-metric-label"><span>{{ metric.label }}</span><strong>{% if metric.target %}{{ metric.actual }} / {{ metric.target }}{% else %}{{ metric.actual }}{% endif %}{% if metric.label == 'Tư vấn, BB' %} điểm{% endif %}</strong></div>
+            <div class="admin-metric-track" role="progressbar" aria-label="{{ metric.label }} của {{ card.member }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ metric.percent }}"><span style="width:{{ metric.percent }}%"></span></div>
+            {% if metric.note %}<small class="admin-metric-note">Mục tiêu {{ metric.note }}</small>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+
+    <p class="admin-data-note">Số thực tế lấy từ dữ liệu trái đã ghi nhận. Mục tiêu TV và BB được thể hiện riêng bên dưới tiến độ gộp.</p>
+  </div>
+</section>
+{% endblock %}

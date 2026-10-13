@@ -1,7 +1,13 @@
 import os
 import re
+import json
+from copy import deepcopy
 from datetime import datetime
+from functools import wraps
+from threading import Lock
+from time import monotonic
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from werkzeug.security import check_password_hash
 
 from config import Config
 from sheets_client import (
@@ -12,6 +18,12 @@ from sheets_client import (
     HEADERS_TAO_XANH,
     SheetsClient,
 )
+from personal_goals_store import (
+    get_goals,
+    save_goal,
+    record_activity,
+    get_motivation_context,
+)
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -19,7 +31,97 @@ app.config.from_object(Config)
 sheets_client = SheetsClient(
     credentials_path=app.config["GOOGLE_CREDENTIALS_PATH"],
     sheet_id=app.config["GOOGLE_SHEET_ID"],
+    credentials_json=app.config["GOOGLE_CREDENTIALS_JSON"],
 )
+
+_APP_CACHE = {}
+_APP_CACHE_LOCKS = {}
+_APP_CACHE_GUARD = Lock()
+
+
+def _cached_value(key, ttl_seconds, loader):
+    with _APP_CACHE_GUARD:
+        key_lock = _APP_CACHE_LOCKS.setdefault(key, Lock())
+    with key_lock:
+        now = monotonic()
+        with _APP_CACHE_GUARD:
+            cached = _APP_CACHE.get(key)
+            if cached and cached[0] > now:
+                return deepcopy(cached[1])
+        value = loader()
+        with _APP_CACHE_GUARD:
+            _APP_CACHE[key] = (monotonic() + ttl_seconds, deepcopy(value))
+        return deepcopy(value)
+
+
+def _replace_cached_value(key, value, ttl_seconds=30):
+    with _APP_CACHE_GUARD:
+        _APP_CACHE[key] = (monotonic() + ttl_seconds, deepcopy(value))
+
+
+def _invalidate_dashboard_cache(*keys):
+    with _APP_CACHE_GUARD:
+        for key in keys or ("personal", "master", "goal_sheet", "schedule"):
+            _APP_CACHE.pop(key, None)
+
+
+def member_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("member"):
+            flash("Đăng nhập để xem mục tiêu cá nhân của bạn nhé.", "info")
+            return redirect(url_for("login", next=request.path))
+        if session.get("role") == "admin":
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Tài khoản quản trị chỉ có quyền xem tổng quan."}), 403
+            return redirect(url_for("admin_dashboard"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("member"):
+            flash("Đăng nhập tài khoản quản trị để xem tổng quan thành viên.", "info")
+            return redirect(url_for("login", next=request.path))
+        if session.get("role") != "admin":
+            flash("Trang này chỉ dành cho tài khoản quản trị.", "error")
+            return redirect(url_for("thong_so_ca_nhan"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def is_admin_account(username, account):
+    return (
+        str(username or "").strip().casefold() == "admin"
+        and str((account or {}).get("member_code") or "").strip().casefold() == "admin"
+    )
+
+
+def is_password_hash(value):
+    if not isinstance(value, str) or value.count("$") < 2:
+        return False
+    return value.startswith(("scrypt:", "pbkdf2:"))
+
+
+def load_member_accounts():
+    try:
+        if app.config.get("MEMBER_ACCOUNTS_JSON"):
+            document = json.loads(app.config["MEMBER_ACCOUNTS_JSON"])
+        else:
+            with open(app.config["MEMBER_ACCOUNTS_FILE"], "r", encoding="utf-8") as account_file:
+                document = json.load(account_file)
+    except (OSError, json.JSONDecodeError, TypeError):
+        return {}
+    accounts = document.get("accounts", []) if isinstance(document, dict) else document
+    if not isinstance(accounts, list):
+        return {}
+    return {
+        str(account.get("username", "")).strip().casefold(): account
+        for account in accounts
+        if isinstance(account, dict) and account.get("username")
+    }
 
 # ---- Nội dung 4 giai đoạn, dùng làm fallback nếu tab Sheet chưa có dữ liệu ----
 GIAI_DOAN = [
@@ -285,9 +387,20 @@ PERSONAL_GOAL_TARGETS = {
     "Nguyễn Huỳnh Đức": {"Tiếp cận": 8, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
     "Phạm Trịnh Khánh An": {"Tiếp cận": 8, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn, BB": 0.5},
 }
+KGT_2026_11_GOAL_TARGETS = {
+    "CIL Thanh": {"Tiếp cận": 5, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn": 1, "BB": 0.5, "Center": 0.5},
+    "Nguyễn Thị Diệu Ngân": {"Tiếp cận": 15, "Chakki": 4, "Tư vấn hình": 2, "Tư vấn": 1, "BB": 0.5, "Center": 0.5},
+    "Phạm Thị Thanh Thảo": {"Tiếp cận": 4, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn": 0.5, "BB": 0.5, "Center": 0.5},
+    "Lê Nguyễn Quỳnh Như": {"Tiếp cận": 3, "Chakki": 1, "Tư vấn hình": 1, "Tư vấn": 0.5, "BB": 0.5, "Center": 0.5},
+    "Phạm Minh Phước": {"Tiếp cận": 19, "Chakki": 5, "Tư vấn hình": 2, "Tư vấn": 1, "BB": 0.5, "Center": 0.5},
+    "Phạm Tường Vy": {"Tiếp cận": 20, "Chakki": 4, "Tư vấn hình": 2, "Tư vấn": 0.5, "BB": 0.5, "Center": 0.5},
+    "Nguyễn Huỳnh Đức": {"Tiếp cận": 9, "Chakki": 2, "Tư vấn hình": 1, "Tư vấn": 0.5, "BB": 0.5, "Center": 0.5},
+    "Phạm Trịnh Khánh An": {"Tiếp cận": 5, "Chakki": 2, "Tư vấn hình": 1, "Tư vấn": 0.5, "BB": 0.5, "Center": 0.5},
+}
 CURRENT_KGT_YEAR = datetime.now().year
 PERSONAL_GOAL_TARGETS_BY_KGT = {
-    f"KGT-{CURRENT_KGT_YEAR}-10": PERSONAL_GOAL_TARGETS
+    f"KGT-{CURRENT_KGT_YEAR}-10": PERSONAL_GOAL_TARGETS,
+    "KGT-2026-11": KGT_2026_11_GOAL_TARGETS,
 }
 KGT_OPTIONS = [
     f"KGT-{year}-{month:02d}"
@@ -306,7 +419,7 @@ def kgt_label(value):
     return normalized
 
 
-def get_launch_schedule_data():
+def _load_launch_schedule_data():
     try:
         rows = sheets_client.get_rows(
             app.config["LICH_KHAI_GIANG_TAB"], HEADERS_LICH_KHAI_GIANG
@@ -332,9 +445,65 @@ def get_launch_schedule_data():
     return [schedules[kgt] for kgt in KGT_OPTIONS]
 
 
+def get_launch_schedule_data():
+    return _cached_value("schedule", 300, _load_launch_schedule_data)
+
+
+def get_focus_launch_weeks(kgt, weeks, today=None):
+    """Return the current and next dated milestones for a member's dashboard."""
+    today = today or datetime.now().date()
+    match = re.fullmatch(r"KGT-(\d{4})-(\d{2})", str(kgt or ""))
+    if not match:
+        return weeks[:2]
+    launch_year, launch_month = int(match.group(1)), int(match.group(2))
+    dated_weeks = []
+    for week in weeks:
+        period = re.search(
+            r"(\d{1,2})/(\d{1,2})\s*[–—-]\s*(\d{1,2})/(\d{1,2})",
+            str(week.get("period") or ""),
+        )
+        if not period:
+            continue
+        start_day, start_month, end_day, end_month = map(int, period.groups())
+        start_year = launch_year - 1 if start_month > launch_month else launch_year
+        end_year = start_year + 1 if end_month < start_month else start_year
+        try:
+            start = datetime(start_year, start_month, start_day).date()
+            end = datetime(end_year, end_month, end_day).date()
+        except ValueError:
+            continue
+        dated_weeks.append((start, end, week))
+
+    current = next((item for item in dated_weeks if item[0] <= today <= item[1]), None)
+    upcoming = [item for item in dated_weeks if item[0] > today]
+    if current:
+        selected = [("Tuần này", current[2])]
+        if upcoming:
+            selected.append(("Tiếp theo", min(upcoming, key=lambda item: item[0])[2]))
+        return [{**week, "focus_label": label} for label, week in selected]
+    if upcoming:
+        upcoming.sort(key=lambda item: item[0])
+        return [
+            {**week, "focus_label": "Sắp tới" if index == 0 else "Tiếp theo"}
+            for index, (_start, _end, week) in enumerate(upcoming[:2])
+        ]
+    dated_weeks.sort(key=lambda item: item[0], reverse=True)
+    return [
+        {**week, "focus_label": "Mốc gần đây"}
+        for _start, _end, week in dated_weeks[:1]
+    ]
+
+
 def _goal_number(value):
     try:
         return max(0, int(float(str(value or "0").replace(",", "."))))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _goal_decimal(value):
+    try:
+        return max(0, float(str(value or "0").replace(",", ".")))
     except (TypeError, ValueError):
         return 0
 
@@ -349,10 +518,7 @@ def _goal_delta(value):
 def _goal_amount(value, stage_key):
     if stage_key != "Tư vấn, BB":
         return _goal_number(value)
-    try:
-        return max(0, float(str(value or "0").replace(",", ".")))
-    except (TypeError, ValueError):
-        return 0
+    return _goal_decimal(value)
 
 
 def _normalise_status(value):
@@ -370,11 +536,18 @@ def _normalise_kgt(value, default=None):
     return default
 
 
-def get_personal_goal_data():
+def get_master_rows_cached():
+    return _cached_value(
+        "master", 20,
+        lambda: sheets_client.list_master_rows(app.config["MASTER_SHEET_TAB"]),
+    )
+
+
+def _load_personal_goal_data():
     source_name = "Bảng thông tin trái quả"
     reference_rows = []
     try:
-        source_rows = sheets_client.list_master_rows(app.config["MASTER_SHEET_TAB"])
+        source_rows = get_master_rows_cached()
     except Exception as exc:
         print(f"Lỗi khi đọc dữ liệu trái từ bảng tổng: {exc}")
         source_rows = []
@@ -498,7 +671,64 @@ def get_personal_goal_data():
     return member_names, chart_rows, kgt_rows, source_name, PERSONAL_GOAL_TARGETS_BY_KGT, reference_rows
 
 
-def sync_goal_comparison_sheet(kgt_rows, goal_targets):
+def get_personal_goal_data():
+    return _cached_value("personal", 20, _load_personal_goal_data)
+
+
+def get_member_personal_targets(username):
+    rows = get_goals(app.config["PERSONAL_GOALS_DB_PATH"], username)
+    return {
+        kgt: {
+            "KGT": kgt,
+            "Chakki mục tiêu": row["chakki_target"],
+            "Tư vấn hình mục tiêu": row["tu_van_hinh_target"],
+            "Tư vấn, BB mục tiêu": row["tu_van_bb_target"],
+            "Điều mình mong muốn": row["wish"],
+            "Lời nhắn cho mình": row["reminder"],
+        }
+        for kgt, row in rows.items()
+    }
+
+
+def filter_personal_data_for_member(member, chart_rows, kgt_rows, reference_rows):
+    chart_rows = [row for row in chart_rows if row["member"] == member]
+    kgt_rows = {
+        kgt: [row for row in rows if row["member"] == member]
+        for kgt, rows in kgt_rows.items()
+    }
+    reference_rows = [
+        row for row in reference_rows
+        if get_full_name(str(row.get("Thành viên") or "").strip()) == member
+    ]
+    return chart_rows, kgt_rows, reference_rows
+
+
+def filter_comparison_for_member(member, comparison_rows, comparison_targets):
+    filtered_rows = {
+        kgt: [row for row in rows if row["member"] == member]
+        for kgt, rows in comparison_rows.items()
+    }
+    filtered_targets = {
+        kgt: ({member: targets[member]} if member in targets else {})
+        for kgt, targets in comparison_targets.items()
+    }
+    return filtered_rows, filtered_targets
+
+
+def personal_targets_for_comparison(member, saved_targets):
+    result = {}
+    for kgt, row in saved_targets.items():
+        result[kgt] = {
+            member: {
+                "Chakki": _goal_number(row.get("Chakki mục tiêu")),
+                "Tư vấn hình": _goal_number(row.get("Tư vấn hình mục tiêu")),
+                "Tư vấn, BB": _goal_number(row.get("Tư vấn, BB mục tiêu")),
+            }
+        }
+    return result
+
+
+def sync_goal_comparison_sheet(kgt_rows, goal_targets, existing_rows=None):
     rows = []
     for kgt, kgt_members in kgt_rows.items():
         targets = goal_targets.get(kgt, {})
@@ -514,29 +744,69 @@ def sync_goal_comparison_sheet(kgt_rows, goal_targets):
                 values[0],
                 target.get("Tư vấn hình", 0),
                 values[1],
-                target.get("Tư vấn, BB", 0),
+                target.get("Tư vấn", 0),
+                target.get("BB", target.get("Tư vấn, BB", 0)),
                 values[2],
+                target.get("Center", 0),
                 values[3],
             ])
+    existing_rows = (
+        get_goal_comparison_sheet_rows() if existing_rows is None else existing_rows
+    )
+
+    def signatures(records):
+        result = {}
+        for record in records:
+            row = record if isinstance(record, dict) else dict(zip(HEADERS_DOI_CHIEU_MUC_TIEU, record))
+            kgt = _normalise_kgt(row.get("KGT"))
+            member = get_full_name(str(row.get("Thành viên") or "").strip())
+            if not kgt or not member:
+                continue
+            result[(kgt, member)] = tuple(
+                _goal_decimal(row.get(header))
+                for header in HEADERS_DOI_CHIEU_MUC_TIEU[2:]
+            )
+        return result
+
+    desired = [dict(zip(HEADERS_DOI_CHIEU_MUC_TIEU, row)) for row in rows]
+    if signatures(existing_rows) == signatures(desired):
+        return False
+
     try:
         sheets_client.replace_rows(
-            app.config["DOI_CHIEU_MUC_TIEU_TAB"],
-            HEADERS_DOI_CHIEU_MUC_TIEU,
-            rows,
+            app.config["DOI_CHIEU_MUC_TIEU_TAB"], HEADERS_DOI_CHIEU_MUC_TIEU, rows
         )
+        _replace_cached_value("goal_sheet", desired, 30)
+        return True
     except Exception as exc:
         print(f"Lỗi khi đồng bộ tab đối chiếu mục tiêu: {exc}")
+        return False
 
 
-def get_goal_comparison_data(fallback_rows, fallback_targets):
+def get_goal_comparison_sheet_rows():
+    def load_rows():
+        try:
+            return sheets_client.get_rows(
+                app.config["DOI_CHIEU_MUC_TIEU_TAB"], HEADERS_DOI_CHIEU_MUC_TIEU
+            )
+        except Exception as exc:
+            print(f"Lỗi khi đọc tab đối chiếu mục tiêu: {exc}")
+            return []
+
+    return _cached_value("goal_sheet", 30, load_rows)
+
+
+def get_goal_comparison_data(fallback_rows, fallback_targets, sheet_rows=None):
     comparison_rows = {kgt: [] for kgt in KGT_OPTIONS}
     comparison_targets = {kgt: {} for kgt in KGT_OPTIONS}
-    try:
-        sheet_rows = sheets_client.get_rows(
-            app.config["DOI_CHIEU_MUC_TIEU_TAB"], HEADERS_DOI_CHIEU_MUC_TIEU
-        )
-    except Exception as exc:
-        print(f"Lỗi khi đọc tab đối chiếu mục tiêu: {exc}")
+    fallback_by_member = {
+        (kgt, item["member"]): item
+        for kgt, items in fallback_rows.items()
+        for item in items
+    }
+    if sheet_rows is None:
+        sheet_rows = get_goal_comparison_sheet_rows()
+    if not sheet_rows:
         return fallback_rows, fallback_targets
 
     for row in sheet_rows:
@@ -544,27 +814,99 @@ def get_goal_comparison_data(fallback_rows, fallback_targets):
         member = get_full_name(str(row.get("Thành viên") or "").strip())
         if not kgt or not member:
             continue
+        fallback = fallback_by_member.get((kgt, member), {})
         comparison_rows.setdefault(kgt, []).append({
             "member": member,
-            "approach": _goal_number(row.get("Tiếp cận thực tế")),
-            "details": [],
-            "values": [
+            "approach": fallback.get("approach", _goal_number(row.get("Tiếp cận thực tế"))),
+            "details": fallback.get("details", []),
+            "values": fallback.get("values", [
                 _goal_number(row.get("Chakki thực tế")),
                 _goal_number(row.get("Tư vấn hình thực tế")),
                 _goal_number(row.get("Tư vấn, BB thực tế")),
                 _goal_number(row.get("Center thực tế")),
-            ],
+            ]),
         })
         comparison_targets.setdefault(kgt, {})[member] = {
             "Tiếp cận": _goal_number(row.get("Tiếp cận mục tiêu")),
             "Chakki": _goal_number(row.get("Chakki mục tiêu")),
             "Tư vấn hình": _goal_number(row.get("Tư vấn hình mục tiêu")),
-            "Tư vấn, BB": _goal_amount(row.get("Tư vấn, BB mục tiêu"), "Tư vấn, BB"),
+            "Tư vấn": _goal_decimal(row.get("Tư vấn mục tiêu")),
+            "BB": _goal_decimal(row.get("BB mục tiêu")),
+            "Tư vấn, BB": (
+                _goal_decimal(row.get("Tư vấn mục tiêu"))
+                + _goal_decimal(row.get("BB mục tiêu"))
+            ),
+            "Center": _goal_decimal(row.get("Center mục tiêu")),
         }
 
     if not any(comparison_rows.values()):
         return fallback_rows, fallback_targets
     return comparison_rows, comparison_targets
+
+
+def all_goal_targets_for_comparison(existing_rows=None):
+    """Combine assigned reach targets with each account's saved personal goals."""
+    targets = {
+        kgt: {member: dict(values) for member, values in members.items()}
+        for kgt, members in PERSONAL_GOAL_TARGETS_BY_KGT.items()
+    }
+
+    # Keep assigned targets from the Sheet report when refreshing actual counts.
+    existing_rows = get_goal_comparison_sheet_rows() if existing_rows is None else existing_rows
+    target_columns = {
+        "Tiếp cận": ("Tiếp cận mục tiêu", _goal_number),
+        "Chakki": ("Chakki mục tiêu", _goal_number),
+        "Tư vấn hình": ("Tư vấn hình mục tiêu", _goal_number),
+        "Tư vấn": ("Tư vấn mục tiêu", _goal_decimal),
+        "BB": ("BB mục tiêu", _goal_decimal),
+        "Center": ("Center mục tiêu", _goal_decimal),
+    }
+    for row in existing_rows:
+        kgt = _normalise_kgt(row.get("KGT"))
+        member = get_full_name(str(row.get("Thành viên") or "").strip())
+        if not kgt or not member:
+            continue
+        member_targets = targets.setdefault(kgt, {}).setdefault(member, {})
+        for key, (column, parser) in target_columns.items():
+            raw_value = str(row.get(column) or "").strip()
+            if not raw_value:
+                continue
+            value = parser(raw_value)
+            if value or key not in member_targets:
+                member_targets[key] = value
+
+        if "Tư vấn, BB" in member_targets and not member_targets.get("Tư vấn") and not member_targets.get("BB"):
+            member_targets["BB"] = _goal_decimal(member_targets["Tư vấn, BB"])
+
+    accounts = load_member_accounts()
+    for account in accounts.values():
+        member_code = str(account.get("member_code") or "").strip()
+        username = str(account.get("username") or "").strip().casefold()
+        if member_code not in app.config["NGUOI_NHAP_LIST"] or not username:
+            continue
+        member = get_full_name(member_code)
+        for kgt, saved_goal in get_member_personal_targets(username).items():
+            member_targets = targets.setdefault(kgt, {}).setdefault(member, {})
+            member_targets.setdefault("Chakki", _goal_number(saved_goal.get("Chakki mục tiêu")))
+            member_targets.setdefault("Tư vấn hình", _goal_number(saved_goal.get("Tư vấn hình mục tiêu")))
+            member_targets.setdefault("Tư vấn", 0)
+            member_targets.setdefault("BB", _goal_amount(saved_goal.get("Tư vấn, BB mục tiêu"), "Tư vấn, BB"))
+            member_targets.setdefault("Center", 0)
+    for members_by_kgt in targets.values():
+        for member_targets in members_by_kgt.values():
+            member_targets.setdefault(
+                "Tư vấn, BB",
+                _goal_decimal(member_targets.get("Tư vấn")) + _goal_decimal(member_targets.get("BB")),
+            )
+    return targets
+
+
+def refresh_goal_comparison_data(kgt_rows):
+    sheet_rows = get_goal_comparison_sheet_rows()
+    goal_targets = all_goal_targets_for_comparison(sheet_rows)
+    sync_goal_comparison_sheet(kgt_rows, goal_targets, sheet_rows)
+    sheet_rows = get_goal_comparison_sheet_rows()
+    return get_goal_comparison_data(kgt_rows, goal_targets, sheet_rows)
 
 
 @app.context_processor
@@ -576,9 +918,57 @@ def inject_globals():
         "nguoi_nhap_options": app.config["NGUOI_NHAP_LIST"],
         "kgt_options": KGT_OPTIONS,
         "kgt_years": sorted({int(kgt.split("-")[1]) for kgt in KGT_OPTIONS}),
-        "current_kgt": f"KGT-{CURRENT_KGT_YEAR}-10",
+        "current_kgt": f"KGT-{CURRENT_KGT_YEAR}-11",
         "kgt_label": kgt_label,
+        "current_member": session.get("member"),
     }
+
+
+@app.route("/dang-nhap", methods=["GET", "POST"])
+def login():
+    if session.get("member"):
+        if session.get("role") == "admin":
+            return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("thong_so_ca_nhan"))
+
+    accounts = load_member_accounts()
+    if request.method == "POST":
+        username = request.form.get("username", "").strip().casefold()
+        password = request.form.get("password", "")
+        account = accounts.get(username, {})
+        member_code = account.get("member_code")
+        password_hash = account.get("password_hash")
+        is_admin = is_admin_account(username, account)
+        if (is_admin or member_code in app.config["NGUOI_NHAP_LIST"]) and is_password_hash(password_hash):
+            if check_password_hash(password_hash, password):
+                session.clear()
+                session["username"] = username
+                session["member"] = "Quản trị viên" if is_admin else get_full_name(member_code)
+                if is_admin:
+                    session["role"] = "admin"
+                    return redirect(url_for("admin_dashboard"))
+                destination = request.form.get("next", "")
+                if destination.startswith("/") and not destination.startswith("//"):
+                    return redirect(destination)
+                return redirect(url_for("thong_so_ca_nhan"))
+        flash("Tên đăng nhập hoặc mật khẩu chưa đúng.", "error")
+
+    configured_member_codes = {
+        account.get("member_code")
+        for account in accounts.values()
+        if isinstance(account, dict) and is_password_hash(account.get("password_hash"))
+    }
+    accounts_ready = all(
+        username in configured_member_codes for username in app.config["NGUOI_NHAP_LIST"]
+    )
+    return render_template("login.html", accounts_ready=accounts_ready)
+
+
+@app.route("/dang-xuat", methods=["POST"])
+def logout():
+    session.clear()
+    flash("Bạn đã đăng xuất. Chúc bạn một ngày thật nhẹ nhàng nhé!", "success")
+    return redirect(url_for("landing"))
 
 
 @app.route("/")
@@ -637,84 +1027,235 @@ def api_muc_tieu_to():
     })
 
 
-@app.route("/muc-tieu-ca-nhan", methods=["GET", "POST"])
-def muc_tieu_ca_nhan():
-    members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
-    if request.method == "POST":
-        member = request.form.get("thanh_vien", "").strip()
-        if member not in members:
-            flash("Vui lòng chọn đúng thành viên trong danh sách 8 người.", "error")
-            return render_template(
-                "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows, goal_targets=goal_targets, reference_rows=reference_rows,
-                source_name=source_name,
-                show_stats=False,
-                form_data=request.form,
-            )
+def build_member_progress_summary(member, selected_kgt, kgt_rows, saved_goal):
+    """Aggregate actual vs target numbers for motivation UI."""
+    rows = kgt_rows.get(selected_kgt) or []
+    row = next((item for item in rows if item.get("member") == member), None)
+    values = (row or {}).get("values") or [0, 0, 0, 0]
+    actuals = [int(v or 0) for v in values[:4]]
+    targets = [
+        int(saved_goal.get("Chakki mục tiêu") or saved_goal.get("chakki_target") or 0),
+        int(saved_goal.get("Tư vấn hình mục tiêu") or saved_goal.get("tu_van_hinh_target") or 0),
+        int(saved_goal.get("Tư vấn, BB mục tiêu") or saved_goal.get("tu_van_bb_target") or 0),
+        0,
+    ]
+    total_actual = sum(actuals[:3])  # focus on stages with personal targets
+    total_target = sum(targets[:3])
+    return {
+        "stages": actuals,
+        "targets": targets,
+        "total_actual": total_actual,
+        "total_target": total_target,
+    }
 
-        row_dict = {
-            "Thành viên": member,
-            "KGT": _normalise_kgt(request.form.get("kgt"), default=f"KGT-{CURRENT_KGT_YEAR}-10"),
-            "Tiếp cận": _goal_number(request.form.get("tiep_can")),
-            "Chakki": _goal_number(request.form.get("chakki")),
-            "Tư vấn hình": _goal_number(request.form.get("tu_van_hinh")),
-            "Tư vấn, BB": _goal_number(request.form.get("tu_van_bb")),
-            "Center": _goal_number(request.form.get("center")),
+
+@app.route("/muc-tieu-ca-nhan", methods=["GET", "POST"])
+@member_required
+def muc_tieu_ca_nhan():
+    member = session["member"]
+    username = session["username"]
+    selected_kgt = _normalise_kgt(
+        request.form.get("kgt") if request.method == "POST" else request.args.get("kgt"),
+        default=f"KGT-{CURRENT_KGT_YEAR}-11",
+    )
+    if selected_kgt not in KGT_OPTIONS:
+        selected_kgt = f"KGT-{CURRENT_KGT_YEAR}-11"
+
+    try:
+        saved_targets = get_member_personal_targets(username)
+    except Exception as exc:
+        saved_targets = {}
+        flash(f"Chưa tải được mục tiêu đã lưu: {exc}", "error")
+
+    if request.method == "POST":
+        goal_values = {
+            "chakki_target": _goal_number(request.form.get("chakki_muc_tieu")),
+            "tu_van_hinh_target": _goal_number(request.form.get("tu_van_hinh_muc_tieu")),
+            "tu_van_bb_target": _goal_number(request.form.get("tu_van_bb_muc_tieu")),
+            "wish": request.form.get("mong_muon", "").strip()[:1000],
+            "reminder": request.form.get("loi_nhan", "").strip()[:500],
         }
         try:
-            sheets_client.append_row(
-                app.config["MUC_TIEU_CA_NHAN_TAB"], HEADERS_MUC_TIEU_CA_NHAN, row_dict
+            save_goal(
+                app.config["PERSONAL_GOALS_DB_PATH"], username, member, selected_kgt,
+                goal_values,
             )
         except Exception as exc:
-            flash(f"Có lỗi khi lưu mục tiêu cá nhân: {exc}", "error")
+            flash(f"Chưa lưu được mục tiêu lần này: {exc}", "error")
+            motivation = get_motivation_context(app.config["PERSONAL_GOALS_DB_PATH"], username)
             return render_template(
-                "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows, goal_targets=goal_targets, reference_rows=reference_rows,
-                source_name=source_name,
-                show_stats=False,
-                form_data=request.form,
+                "muc_tieu_ca_nhan.html", show_stats=False, form_data=request.form,
+                goal_data={}, selected_kgt=selected_kgt, motivation=motivation,
+                current_member=member,
             )
 
-        total = row_dict["Tiếp cận"] + sum(row_dict[stage["key"]] for stage in MUC_TIEU_CA_NHAN_STAGES)
-        if total:
-            flash(f"Chúc mừng {member}, bạn đã thêm {total} trái được duyệt! Hãy tiếp tục phát huy nhé.", "success")
-        else:
-            flash("Lần này bạn chưa thêm được trái nào, nhưng đừng nản nhé. Đây chỉ là một lần chưa đạt, hãy tiếp tục cố gắng vì mỗi bước nhỏ đều đáng giá!", "success")
-        return redirect(url_for("muc_tieu_ca_nhan"))
+        _invalidate_dashboard_cache("goal_sheet")
+        try:
+            _, _, all_kgt_rows, _, _, _ = get_personal_goal_data()
+            refresh_goal_comparison_data(all_kgt_rows)
+        except Exception as exc:
+            print(f"Lỗi khi cập nhật tab đối chiếu mục tiêu: {exc}")
 
+        flash("Đã lưu mục tiêu và lời nhắn cho kỳ này. Bạn có thể quay lại chỉnh sửa bất cứ lúc nào.", "success")
+        return redirect(url_for("muc_tieu_ca_nhan", kgt=selected_kgt, saved=1))
+
+    goal_data = saved_targets.get(selected_kgt, {})
+    try:
+        _, _, kgt_rows, _, _, _ = get_personal_goal_data()
+        progress = build_member_progress_summary(member, selected_kgt, kgt_rows, goal_data)
+    except Exception:
+        progress = {"total_actual": 0, "total_target": 0, "stages": [0, 0, 0, 0], "targets": [0, 0, 0, 0]}
+    motivation = get_motivation_context(
+        app.config["PERSONAL_GOALS_DB_PATH"], username, progress
+    )
     return render_template(
-        "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows, goal_targets=goal_targets, reference_rows=reference_rows,
-        source_name=source_name, show_stats=False, form_data={}
+        "muc_tieu_ca_nhan.html", show_stats=False, form_data=goal_data,
+        goal_data=goal_data, selected_kgt=selected_kgt, motivation=motivation,
+        current_member=member, celebrate_save=request.args.get("saved") == "1",
     )
 
 
 @app.route("/thong-so-ca-nhan")
+@member_required
 def thong_so_ca_nhan():
-    members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
+    member = session["member"]
+    username = session["username"]
+    selected_kgt = _normalise_kgt(
+        request.args.get("kgt"), default=f"KGT-{CURRENT_KGT_YEAR}-11"
+    )
+    if selected_kgt not in KGT_OPTIONS:
+        selected_kgt = f"KGT-{CURRENT_KGT_YEAR}-11"
+    schedule = next(
+        (item for item in get_launch_schedule_data() if item["kgt"] == selected_kgt),
+        {"date": "", "weeks": []},
+    )
+    focus_weeks = get_focus_launch_weeks(selected_kgt, schedule.get("weeks", []))
+    members, chart_rows, kgt_rows, source_name, _, reference_rows = get_personal_goal_data()
+    comparison_rows, comparison_targets = refresh_goal_comparison_data(kgt_rows)
+    comparison_rows, comparison_targets = filter_comparison_for_member(
+        member, comparison_rows, comparison_targets
+    )
+    chart_rows, kgt_rows, reference_rows = filter_personal_data_for_member(
+        member, chart_rows, kgt_rows, reference_rows
+    )
+    try:
+        personal_targets = personal_targets_for_comparison(
+            member, get_member_personal_targets(username)
+        )
+        saved_goal = get_member_personal_targets(username).get(selected_kgt, {})
+    except Exception as exc:
+        personal_targets = {}
+        saved_goal = {}
+        flash(f"Chưa tải được mục tiêu của bạn: {exc}", "error")
+    progress = build_member_progress_summary(member, selected_kgt, kgt_rows, saved_goal)
+    motivation = get_motivation_context(
+        app.config["PERSONAL_GOALS_DB_PATH"], username, progress
+    )
     return render_template(
         "muc_tieu_ca_nhan.html", members=members, chart_rows=chart_rows, kgt_rows=kgt_rows,
-        source_name=source_name, show_stats=True, form_data={}, goal_targets=goal_targets,
-        comparison_rows=kgt_rows, comparison_targets=goal_targets
+        source_name=source_name, show_stats=True, form_data={}, goal_targets=personal_targets,
+        comparison_rows=comparison_rows, comparison_targets=comparison_targets,
+        current_member=member, current_kgt=selected_kgt, selected_kgt=selected_kgt,
+        goal_data=saved_goal, launch_schedule=schedule, focus_weeks=focus_weeks,
+        motivation=motivation, progress=progress,
+    )
+
+
+@app.route("/admin/tong-quan")
+@admin_required
+def admin_dashboard():
+    selected_kgt = _normalise_kgt(
+        request.args.get("kgt"), default=f"KGT-{CURRENT_KGT_YEAR}-11"
+    )
+    if selected_kgt not in KGT_OPTIONS:
+        selected_kgt = f"KGT-{CURRENT_KGT_YEAR}-11"
+
+    members, _chart_rows, kgt_rows, source_name, _, _reference_rows = get_personal_goal_data()
+    comparison_rows, comparison_targets = refresh_goal_comparison_data(kgt_rows)
+    rows_by_member = {
+        row["member"]: row for row in comparison_rows.get(selected_kgt, [])
+    }
+    targets_by_member = comparison_targets.get(selected_kgt, {})
+    cards = []
+    totals = {"Tiếp cận": 0, "Chakki": 0, "Tư vấn hình": 0, "Tư vấn, BB": 0, "Center": 0}
+
+    for member in members:
+        row = rows_by_member.get(member) or next(
+            (item for item in kgt_rows.get(selected_kgt, []) if item["member"] == member),
+            {"member": member, "approach": 0, "values": [0, 0, 0, 0]},
+        )
+        values = list(row.get("values") or [0, 0, 0, 0])
+        values = (values + [0, 0, 0, 0])[:4]
+        target = targets_by_member.get(member, {})
+        tv_target = _goal_decimal(target.get("Tư vấn", 0))
+        bb_target = _goal_decimal(target.get("BB", 0))
+        metrics = [
+            ("Tiếp cận", _goal_number(row.get("approach")), _goal_number(target.get("Tiếp cận", 0)), ""),
+            ("Chakki", _goal_number(values[0]), _goal_number(target.get("Chakki", 0)), ""),
+            ("Tư vấn hình", _goal_number(values[1]), _goal_number(target.get("Tư vấn hình", 0)), ""),
+            ("Tư vấn, BB", _goal_decimal(values[2]) * 0.5, tv_target + bb_target, f"TV {tv_target:g} · BB {bb_target:g}"),
+            ("Center", _goal_number(values[3]), _goal_decimal(target.get("Center", 0)), ""),
+        ]
+        for label, actual, _goal, _note in metrics:
+            totals[label] += actual
+        cards.append({
+            "member": member,
+            "metrics": [
+                {
+                    "label": label,
+                    "actual": actual,
+                    "target": goal,
+                    "percent": min(100, round(actual / goal * 100)) if goal else 0,
+                    "note": note,
+                }
+                for label, actual, goal, note in metrics
+            ],
+            "has_progress": any(actual > 0 for _, actual, _, _ in metrics),
+        })
+
+    return render_template(
+        "admin_dashboard.html",
+        cards=cards,
+        totals=totals,
+        active_members=sum(card["has_progress"] for card in cards),
+        selected_kgt=selected_kgt,
+        source_name=source_name,
     )
 
 
 @app.route("/api/muc-tieu-ca-nhan")
+@member_required
 def api_muc_tieu_ca_nhan():
-    members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
+    member = session["member"]
+    members, chart_rows, kgt_rows, source_name, _, reference_rows = get_personal_goal_data()
+    comparison_rows, comparison_targets = refresh_goal_comparison_data(kgt_rows)
+    comparison_rows, comparison_targets = filter_comparison_for_member(
+        member, comparison_rows, comparison_targets
+    )
+    chart_rows, kgt_rows, reference_rows = filter_personal_data_for_member(
+        member, chart_rows, kgt_rows, reference_rows
+    )
     return jsonify({
         "stages": MUC_TIEU_CA_NHAN_STAGES,
-        "members": members,
+        "members": [member],
         "rows": chart_rows,
         "kgtRows": kgt_rows,
         "kgtOptions": KGT_OPTIONS,
-        "targets": goal_targets,
+        "targets": personal_targets_for_comparison(member, get_member_personal_targets(session["username"])),
+        "comparisonRows": comparison_rows,
+        "comparisonTargets": comparison_targets,
         "source": source_name,
         "referenceRows": reference_rows,
     })
 
 
 @app.route("/api/muc-tieu-ca-nhan/tiep-can", methods=["POST"])
+@member_required
 def api_update_tiep_can():
     payload = request.get_json(silent=True) or {}
     member = str(payload.get("member") or "").strip()
+    if member != session.get("member"):
+        return jsonify({"error": "Bạn chỉ có thể cập nhật tiến độ của tài khoản mình."}), 403
     kgt = _normalise_kgt(payload.get("kgt"))
     try:
         delta = int(payload.get("delta"))
@@ -726,12 +1267,12 @@ def api_update_tiep_can():
         return jsonify({"error": "Thông tin cập nhật không hợp lệ."}), 400
 
     try:
-        rows = sheets_client.get_rows(
-            app.config["MUC_TIEU_CA_NHAN_TAB"], HEADERS_MUC_TIEU_CA_NHAN
-        )
+        # Reuse the dashboard's short-lived snapshot instead of reading the same
+        # Google Sheet again before every +/- click.
+        members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows = get_personal_goal_data()
         current = sum(
             _goal_delta(row.get("Tiếp cận"))
-            for row in rows
+            for row in reference_rows
             if get_full_name(str(row.get("Thành viên") or "").strip()) == member
             and _normalise_kgt(row.get("KGT")) == kgt
         )
@@ -742,6 +1283,38 @@ def api_update_tiep_can():
             HEADERS_MUC_TIEU_CA_NHAN,
             {"Thành viên": member, "KGT": kgt, "Tiếp cận": delta},
         )
+        reference = next((
+            row for row in reference_rows
+            if get_full_name(str(row.get("Thành viên") or "").strip()) == member
+            and _normalise_kgt(row.get("KGT")) == kgt
+        ), None)
+        if reference:
+            reference["Tiếp cận"] = _goal_delta(reference.get("Tiếp cận")) + delta
+        else:
+            reference_rows.append({
+                "Thời gian nhập": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Thành viên": member,
+                "KGT": kgt,
+                "Tiếp cận": delta,
+                "Chakki": 0,
+                "Tư vấn hình": 0,
+                "Tư vấn, BB": 0,
+                "Center": 0,
+            })
+        for row in chart_rows:
+            if row["member"] == member:
+                row["approach"] = _goal_delta(row.get("approach")) + delta
+                break
+        for row in kgt_rows.get(kgt, []):
+            if row["member"] == member:
+                row["approach"] = _goal_delta(row.get("approach")) + delta
+                break
+        _replace_cached_value(
+            "personal",
+            (members, chart_rows, kgt_rows, source_name, goal_targets, reference_rows),
+            20,
+        )
+        _invalidate_dashboard_cache("goal_sheet")
         return jsonify({"member": member, "kgt": kgt, "approach": current + delta})
     except Exception as exc:
         return jsonify({"error": f"Không thể cập nhật Tiếp cận: {exc}"}), 500
@@ -829,6 +1402,16 @@ def form_tao_do():
                 selected_ly_do_loai=selected_ly_do_loai,
             )
 
+        _invalidate_dashboard_cache("personal", "master", "goal_sheet")
+        if session.get("username"):
+            try:
+                record_activity(
+                    app.config["PERSONAL_GOALS_DB_PATH"],
+                    session["username"],
+                    "fruit",
+                )
+            except Exception as exc:
+                print(f"Không ghi được activity: {exc}")
         session["last_copy"] = {
             "loai": "tao-do",
             "ten": request.form.get("ho_ten_ca", ""),
@@ -858,7 +1441,7 @@ def form_tao_do():
 @app.route("/nhap-lieu/tao-xanh", methods=["GET", "POST"])
 def form_tao_xanh():
     try:
-        master_rows = sheets_client.list_master_rows(app.config["MASTER_SHEET_TAB"])
+        master_rows = get_master_rows_cached()
     except Exception as e:
         flash(f"Có lỗi khi đọc danh sách trái đã nhập: {e}", "error")
         master_rows = []
@@ -947,6 +1530,16 @@ def form_tao_xanh():
             flash(f"Có lỗi khi ghi vào Google Sheet: {e}", "error")
             return render_template("form_green.html", form_data=request.form, master_rows=master_rows)
 
+        _invalidate_dashboard_cache("personal", "master", "goal_sheet")
+        if session.get("username"):
+            try:
+                record_activity(
+                    app.config["PERSONAL_GOALS_DB_PATH"],
+                    session["username"],
+                    "fruit",
+                )
+            except Exception as exc:
+                print(f"Không ghi được activity: {exc}")
         session["last_copy"] = {
             "loai": "tao-xanh",
             "ten": request.form.get("ho_ten_ca", ""),
@@ -983,7 +1576,7 @@ def success():
 @app.route("/cap-nhat", methods=["GET", "POST"])
 def update_master_lookup():
     try:
-        master_rows = sheets_client.list_master_rows(app.config["MASTER_SHEET_TAB"])
+        master_rows = get_master_rows_cached()
     except Exception as e:
         flash(f"Có lỗi khi đọc danh sách trái: {e}", "error")
         master_rows = []
@@ -1016,6 +1609,16 @@ def update_master(record_id):
                 "update_master.html", record_id=record_id,
                 master_data=request.form, update_fields=update_fields,
             )
+        _invalidate_dashboard_cache("personal", "master", "goal_sheet")
+        if session.get("username"):
+            try:
+                record_activity(
+                    app.config["PERSONAL_GOALS_DB_PATH"],
+                    session["username"],
+                    "update",
+                )
+            except Exception as exc:
+                print(f"Không ghi được activity: {exc}")
         flash("Đã cập nhật tình hình trái trên đúng dòng cũ.", "success")
         return redirect(url_for("update_master", record_id=record_id))
 

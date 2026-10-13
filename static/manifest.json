@@ -1,15 +1,24 @@
 {
-  "name": "ĐL-T4",
+  "name": "ĐL-T4 — Theo dõi hành trình trái",
   "short_name": "ĐL-T4",
-  "description": "Hệ thống theo dõi và nhập liệu trái theo 4 giai đoạn.",
+  "description": "Nhập và theo dõi thông tin trái qua 4 giai đoạn. Tối ưu cho điện thoại.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#FBF6EC",
-  "theme_color": "#FBF6EC",
+  "theme_color": "#2E4A3A",
+  "lang": "vi",
   "icons": [
     {
       "src": "/static/img/sad-01.png",
-      "sizes": "any",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/sad-01.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }

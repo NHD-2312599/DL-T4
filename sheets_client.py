@@ -12,6 +12,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 import re
+import json
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -104,25 +105,33 @@ HEADERS_DOI_CHIEU_MUC_TIEU = [
     "Chakki thực tế",
     "Tư vấn hình mục tiêu",
     "Tư vấn hình thực tế",
-    "Tư vấn, BB mục tiêu",
+    "Tư vấn mục tiêu",
+    "BB mục tiêu",
     "Tư vấn, BB thực tế",
+    "Center mục tiêu",
     "Center thực tế",
 ]
 
 
 class SheetsClient:
-    def __init__(self, credentials_path, sheet_id):
+    def __init__(self, credentials_path, sheet_id, credentials_json=""):
         self.credentials_path = credentials_path
         self.sheet_id = sheet_id
+        self.credentials_json = credentials_json
         self._gc = None
         self._sh = None
 
     def _connect(self):
         if self._gc is None or self._sh is None:
             try:
-                creds = Credentials.from_service_account_file(
-                    self.credentials_path, scopes=SCOPES
-                )
+                if self.credentials_json:
+                    creds = Credentials.from_service_account_info(
+                        json.loads(self.credentials_json), scopes=SCOPES
+                    )
+                else:
+                    creds = Credentials.from_service_account_file(
+                        self.credentials_path, scopes=SCOPES
+                    )
                 gc = gspread.authorize(creds)
                 sh = gc.open_by_key(self.sheet_id)
             except Exception:
@@ -187,10 +196,13 @@ class SheetsClient:
     def replace_rows(self, tab_name, headers, rows):
         """Replace a generated report tab without accumulating duplicate rows."""
         ws = self._get_or_create_tab(tab_name, headers)
+        ws.clear_basic_filter()
         ws.clear()
-        ws.append_row(headers, value_input_option="USER_ENTERED")
-        if rows:
-            ws.append_rows(rows, value_input_option="USER_ENTERED")
+        ws.update(
+            [headers, *rows],
+            "A1",
+            value_input_option="RAW",
+        )
         ws.freeze(rows=1)
         return True
 

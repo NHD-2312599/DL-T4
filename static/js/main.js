@@ -97,3 +97,146 @@ document.addEventListener("DOMContentLoaded", function () {
   });
     filterResults();
 });
+
+/* ---------- Celebration micro-interaction ---------- */
+window.Dlt4Celebrate = function (options) {
+  options = options || {};
+  var message = options.message || 'Tuyệt vời!';
+  var colors = ['#C1442C', '#6E8F4C', '#D8A23B', '#9E3320', '#8AA969', '#E8C99A'];
+
+  var layer = document.createElement('div');
+  layer.className = 'dlt4-confetti-layer';
+  layer.setAttribute('aria-hidden', 'true');
+  var count = 36;
+  for (var i = 0; i < count; i++) {
+    var piece = document.createElement('span');
+    piece.className = 'dlt4-confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[i % colors.length];
+    piece.style.animationDuration = (1.4 + Math.random() * 1.4) + 's';
+    piece.style.animationDelay = (Math.random() * 0.35) + 's';
+    piece.style.width = (6 + Math.random() * 6) + 'px';
+    piece.style.height = (8 + Math.random() * 8) + 'px';
+    piece.style.opacity = String(0.75 + Math.random() * 0.25);
+    layer.appendChild(piece);
+  }
+  document.body.appendChild(layer);
+
+  var toast = document.createElement('div');
+  toast.className = 'dlt4-celebrate-toast';
+  toast.setAttribute('role', 'status');
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(function () {
+    toast.classList.add('is-visible');
+  });
+
+  setTimeout(function () {
+    toast.classList.remove('is-visible');
+    setTimeout(function () {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+      if (layer.parentNode) layer.parentNode.removeChild(layer);
+    }, 400);
+  }, 2800);
+};
+
+/* ---------- Add to Home Screen (Android + iOS) ---------- */
+window.Dlt4InstallGuide = function () {
+  var androidBlock = document.getElementById("installAndroid");
+  var iosBlock = document.getElementById("installIos");
+  var genericBlock = document.getElementById("installGeneric");
+  var installBtn = document.getElementById("installAppBtn");
+  var installDone = document.getElementById("installDone");
+  if (!androidBlock && !iosBlock && !genericBlock) return;
+
+  var ua = navigator.userAgent || "";
+  var isIos = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var isAndroid = /android/i.test(ua);
+  var isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+
+  function show(el) {
+    if (el) el.hidden = false;
+  }
+  function hide(el) {
+    if (el) el.hidden = true;
+  }
+
+  if (isStandalone) {
+    hide(androidBlock);
+    hide(iosBlock);
+    hide(genericBlock);
+    show(installDone);
+    return;
+  }
+
+  if (isIos) {
+    hide(androidBlock);
+    hide(genericBlock);
+    show(iosBlock);
+  } else if (isAndroid) {
+    hide(iosBlock);
+    // Prefer native install button when beforeinstallprompt fires; else show generic Android steps
+    hide(androidBlock);
+    show(genericBlock);
+    // Pre-select Android tab
+    var tabs = document.querySelectorAll(".install-tab");
+    tabs.forEach(function (t) {
+      t.classList.toggle("is-active", t.getAttribute("data-platform") === "android");
+    });
+    document.querySelectorAll(".install-panel").forEach(function (p) {
+      p.hidden = p.getAttribute("data-panel") !== "android";
+    });
+  } else {
+    hide(androidBlock);
+    hide(iosBlock);
+    show(genericBlock);
+  }
+
+  // Platform tabs (generic)
+  document.querySelectorAll(".install-tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      var platform = tab.getAttribute("data-platform");
+      document.querySelectorAll(".install-tab").forEach(function (t) {
+        t.classList.toggle("is-active", t === tab);
+      });
+      document.querySelectorAll(".install-panel").forEach(function (p) {
+        p.hidden = p.getAttribute("data-panel") !== platform;
+      });
+    });
+  });
+
+  // Android native install prompt
+  var deferredPrompt = null;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (isAndroid || !isIos) {
+      hide(genericBlock);
+      hide(iosBlock);
+      show(androidBlock);
+    }
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener("click", function () {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function (choice) {
+        deferredPrompt = null;
+        if (choice && choice.outcome === "accepted") {
+          hide(androidBlock);
+          show(installDone);
+        }
+      });
+    });
+  }
+
+  window.addEventListener("appinstalled", function () {
+    hide(androidBlock);
+    hide(iosBlock);
+    hide(genericBlock);
+    show(installDone);
+  });
+};

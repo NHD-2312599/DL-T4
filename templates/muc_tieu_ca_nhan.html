@@ -1,241 +1,321 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Thông số cá nhân' if show_stats else 'Mục tiêu cá nhân' }} — ĐL-T4{% endblock %}
+{% block title %}{{ 'Hành trình của bạn' if show_stats else 'Mục tiêu của bạn' }} — ĐL-T4{% endblock %}
 
 {% block content %}
-<section class="page-head">
+{% set motiv = motivation if motivation is defined else {} %}
+<section class="page-head page-head-personal clean-today">
   <div class="section-inner">
-    <p class="eyebrow">Theo dõi từng thành viên</p>
-    <h1 class="page-title">{{ 'Thông số cá nhân' if show_stats else 'Mục tiêu cá nhân' }}</h1>
-    <p class="page-sub">{{ 'Theo dõi biểu đồ, tỷ lệ và bảng tổng hợp theo thành viên hoặc kỳ khai giảng.' if show_stats else 'Ghi nhận số trái được duyệt theo từng thành viên và giai đoạn.' }} Dữ liệu lấy từ tab <strong>{{ source_name }}</strong>.</p>
-    <div class="feature-switch" aria-label="Chuyển tính năng">
-      <a href="{{ url_for('muc_tieu_ca_nhan') }}" class="feature-switch-link {{ 'is-active' if not show_stats else '' }}">Mục tiêu cá nhân</a>
-      <a href="{{ url_for('thong_so_ca_nhan') }}" class="feature-switch-link {{ 'is-active' if show_stats else '' }}">Thông số</a>
-      <a href="{{ url_for('lich_trinh_khai_giang') }}" class="feature-switch-link">Lịch khai giảng</a>
+    <div class="clean-today-top">
+      <div>
+        <p class="clean-date">Hôm nay</p>
+        <h1 class="clean-greeting">{{ ('Chào ' ~ current_member ~ ' 👋') if current_member else ('Mục tiêu của bạn') }}</h1>
+      </div>
+      {% if motiv.get('streak', 0) %}
+      <div class="clean-streak-pill profile-streak-{{ motiv.get('tone', 'gentle') }}" title="Streak">
+        <span aria-hidden="true">🔥</span> {{ motiv.streak }}
+      </div>
+      {% endif %}
+    </div>
+
+    {% if motiv %}
+    <div class="clean-hero-card today-hero-{{ motiv.get('tone', 'gentle') }}" aria-live="polite">
+      <p class="clean-hero-msg">{{ motiv.get('message', 'Hôm nay chỉ cần một bước nhỏ.') }}</p>
+      <div class="clean-metrics">
+        <div class="clean-metric">
+          <strong>{{ motiv.get('streak', 0) }}</strong>
+          <span>ngày streak</span>
+        </div>
+        {% if motiv.get('total_target') %}
+        <div class="clean-metric">
+          <strong>{{ motiv.get('percent', 0) }}%</strong>
+          <span>mục tiêu</span>
+        </div>
+        {% endif %}
+        {% if motiv.get('total_actual') is defined %}
+        <div class="clean-metric">
+          <strong>{{ motiv.get('total_actual', 0) }}</strong>
+          <span>đã đạt</span>
+        </div>
+        {% endif %}
+      </div>
+      {% if motiv.get('next_streak_hint') %}
+      <p class="clean-hint">{{ motiv.next_streak_hint }}</p>
+      {% endif %}
+      <a href="{{ url_for('select_form') }}" class="btn btn-primary btn-clean-main">🍎 Nhập trái mới</a>
+    </div>
+    {% endif %}
+
+    <div class="clean-tabs" aria-label="Chuyển màn hình">
+      <a href="{{ url_for('muc_tieu_ca_nhan') }}" class="clean-tab {{ 'is-active' if not show_stats else '' }}">Mục tiêu</a>
+      <a href="{{ url_for('thong_so_ca_nhan') }}" class="clean-tab {{ 'is-active' if show_stats else '' }}">Tiến độ</a>
+      <a href="{{ url_for('lich_trinh_khai_giang') }}" class="clean-tab">Lịch</a>
     </div>
   </div>
 </section>
 
 {% if not show_stats %}
-<section class="section personal-goal-section">
+<section class="section personal-goal-section clean-goal-section">
   <div class="section-inner personal-goal-grid">
-    <form method="POST" class="personal-goal-form">
+    <form method="POST" class="personal-goal-form personal-aspiration-form clean-card" id="goalForm">
       <div class="panel-heading">
-        <span class="panel-kicker">01 · Ghi nhận</span>
-        <h2>Cập nhật mục tiêu cá nhân</h2>
+        <h2>Đặt mục tiêu</h2>
+        <p class="goal-encouragement">Chọn số vừa sức với bạn.</p>
       </div>
       <label class="field">
-        <span class="field-label">Thành viên <span class="req">*</span></span>
-        <select name="thanh_vien" required>
-          <option value="">-- Chọn thành viên --</option>
-          {% for member in members %}
-          <option value="{{ member }}" {{ 'selected' if form_data.get('thanh_vien') == member }}>{{ member }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="field">
-        <span class="field-label">Khai giảng <span class="req">*</span></span>
+        <span class="field-label">Kỳ khai giảng</span>
         <select name="kgt" required>
-          {% for kgt in kgt_rows %}
-          <option value="{{ kgt }}" {{ 'selected' if form_data.get('kgt', current_kgt) == kgt }}>{{ kgt_label(kgt) }}</option>
+          {% for kgt in kgt_options %}
+          <option value="{{ kgt }}" {{ 'selected' if form_data.get('kgt', selected_kgt) == kgt }}>{{ kgt_label(kgt) }}</option>
           {% endfor %}
         </select>
       </label>
-      <p class="form-hint">Mỗi lần cập nhật thuộc một kỳ khai giảng cụ thể. Tiếp cận cũng được cộng riêng theo đúng kỳ đã chọn.</p>
-      <div class="personal-stage-fields">
-        <label class="field"><span class="field-label stage-label stage-label-xanh">Tiếp cận</span><input type="number" name="tiep_can" min="0" step="1" value="{{ form_data.get('tiep_can', 0) }}"></label>
-        <label class="field"><span class="field-label stage-label stage-label-do">1. Chakki</span><input type="number" name="chakki" min="0" step="1" value="{{ form_data.get('chakki', 0) }}"></label>
-        <label class="field"><span class="field-label stage-label stage-label-xanh">2. Tư vấn hình</span><input type="number" name="tu_van_hinh" min="0" step="1" value="{{ form_data.get('tu_van_hinh', 0) }}"></label>
-        <label class="field"><span class="field-label stage-label stage-label-do">3. Tư vấn, BB <small>(trái, 1 trái = 0.5 điểm)</small></span><input type="number" name="tu_van_bb" min="0" step="1" value="{{ form_data.get('tu_van_bb', 0) }}"></label>
-        <label class="field"><span class="field-label stage-label stage-label-xanh">4. Center</span><input type="number" name="center" min="0" step="1" value="{{ form_data.get('center', 0) }}"></label>
+      <div class="personal-stage-fields aspiration-stage-fields">
+        <label class="field"><span class="field-label stage-label stage-label-do">CK</span><input type="number" name="chakki_muc_tieu" min="0" step="1" inputmode="numeric" placeholder="0" value="{{ form_data.get('chakki_muc_tieu', form_data.get('Chakki mục tiêu', form_data.get('chakki_target', ''))) }}"></label>
+        <label class="field"><span class="field-label stage-label stage-label-xanh">TV</span><input type="number" name="tu_van_hinh_muc_tieu" min="0" step="1" inputmode="numeric" placeholder="0" value="{{ form_data.get('tu_van_hinh_muc_tieu', form_data.get('Tư vấn hình mục tiêu', form_data.get('tu_van_hinh_target', ''))) }}"></label>
+        <label class="field"><span class="field-label stage-label stage-label-do">BB</span><input type="number" name="tu_van_bb_muc_tieu" min="0" step="1" inputmode="numeric" placeholder="0" value="{{ form_data.get('tu_van_bb_muc_tieu', form_data.get('Tư vấn, BB mục tiêu', form_data.get('tu_van_bb_target', ''))) }}"></label>
       </div>
-      <button type="submit" class="btn btn-primary btn-block">Lưu mục tiêu cá nhân</button>
+      <label class="field">
+        <span class="field-label">Mình mong muốn</span>
+        <textarea name="mong_muon" rows="2" maxlength="1000" placeholder="Vì sao mục tiêu này quan trọng?">{{ form_data.get('mong_muon', form_data.get('Điều mình mong muốn', form_data.get('wish', ''))) }}</textarea>
+      </label>
+      <label class="field">
+        <span class="field-label">Lời nhắn cho mình</span>
+        <textarea name="loi_nhan" rows="2" maxlength="500" placeholder="Một câu để tự nhắc…">{{ form_data.get('loi_nhan', form_data.get('Lời nhắn cho mình', form_data.get('reminder', ''))) }}</textarea>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Lưu mục tiêu</button>
     </form>
 
-    <div class="personal-goal-note">
-      <span class="panel-kicker">02 · Cách tính</span>
-      <h2>Mục tiêu Khu vực giao</h2>
-      <p>Mỗi lần gửi sẽ được lưu thành một bản ghi riêng. Tiếp cận do thành viên nhập để kiểm tra tiến độ.</p>
-      <div class="goal-target-table-wrap">
-        <table class="goal-target-table">
-          <thead><tr><th>Thành viên</th><th>Tiếp cận</th><th>Chakki</th><th>TVH</th><th>TV, BB</th></tr></thead>
-          <tbody>
-            {% for member in members %}
-            {% set target = goal_targets.get(current_kgt, {}).get(member, {}) %}
-            <tr><th>{{ member }}</th><td>{{ target.get('Tiếp cận', 0) }}</td><td>{{ target.get('Chakki', 0) }}</td><td>{{ target.get('Tư vấn hình', 0) }}</td><td>{{ target.get('Tư vấn, BB', 0) }}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <aside class="personal-goal-note personal-goal-memory clean-card">
+      <h2>{{ 'Đã lưu' if goal_data else 'Chưa có mục tiêu' }}</h2>
+      {% set saved_goal = goal_data if goal_data else form_data %}
+      {% set saved_ck = saved_goal.get('Chakki mục tiêu', saved_goal.get('chakki_muc_tieu', saved_goal.get('chakki_target', 0))) %}
+      {% set saved_tv = saved_goal.get('Tư vấn hình mục tiêu', saved_goal.get('tu_van_hinh_muc_tieu', saved_goal.get('tu_van_hinh_target', 0))) %}
+      {% set saved_bb = saved_goal.get('Tư vấn, BB mục tiêu', saved_goal.get('tu_van_bb_muc_tieu', saved_goal.get('tu_van_bb_target', 0))) %}
+      {% if goal_data or form_data %}
+      <div class="saved-goal-list">
+        <div><span>CK</span><strong>{{ saved_ck or 0 }}</strong></div>
+        <div><span>TV</span><strong>{{ saved_tv or 0 }}</strong></div>
+        <div><span>BB</span><strong>{{ saved_bb or 0 }}</strong></div>
       </div>
-
-    </div>
-  </div>
-  <div class="section-inner personal-reference-section">
-    <div class="personal-reference-heading">
-      <div>
-        <span class="panel-kicker">04 · Tham khảo</span>
-        <h2>Dữ liệu tự nguyện đã nhập</h2>
-      </div>
-    </div>
-    <div class="personal-table-wrap personal-reference-table-wrap">
-      <table class="personal-table">
-        <thead><tr><th>Lần nhập gần nhất</th><th>Thành viên</th><th>Khai giảng</th><th>Tiếp cận</th><th>Chakki</th><th>Tư vấn hình</th><th>Tư vấn, BB</th><th>Center</th></tr></thead>
-        <tbody>
-          {% for row in reference_rows|reverse %}
-          <tr><td>{{ row.get('Thời gian nhập', '') }}</td><th>{{ row.get('Thành viên', '') }}</th><td>{{ row.get('KGT', '') }}</td><td>{{ row.get('Tiếp cận', 0) }}</td><td>{{ row.get('Chakki', 0) }}</td><td>{{ row.get('Tư vấn hình', 0) }}</td><td>{{ row.get('Tư vấn, BB', 0) }}</td><td>{{ row.get('Center', 0) }}</td></tr>
-          {% else %}
-          <tr><td colspan="8">Chưa có dữ liệu tự nguyện.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      <blockquote class="goal-memory-quote">
+        {{ saved_goal.get('Lời nhắn cho mình', saved_goal.get('loi_nhan', saved_goal.get('reminder', ''))) or 'Mỗi bước nhỏ đều có ý nghĩa.' }}
+      </blockquote>
+      {% else %}
+      <div class="goal-first-step-note">Chưa cần đủ hết. Chọn một số nhỏ để bắt đầu.</div>
+      {% endif %}
+    </aside>
   </div>
 </section>
 {% endif %}
 
 {% if show_stats %}
-<section class="section personal-stats-section">
-  <div class="section-inner">
-    <div class="panel-heading">
-      <span class="panel-kicker">03 · Thông số</span>
-      <h2>Tiến độ của 8 thành viên</h2>
-    </div>
-    <div class="personal-overview" aria-live="polite">
-      <article class="overview-card overview-card-total">
-        <span class="overview-label">Tổng trái đã ghi nhận</span>
-        <strong class="overview-value" id="overallTotal">0</strong>
-        <span class="overview-meta">trên tất cả kỳ khai giảng</span>
+<section class="section personal-stats-section clean-stats">
+  <div class="section-inner member-dashboard-layout">
+    <div class="member-dashboard-main">
+      <article class="personal-progress-card clean-progress-card" aria-live="polite">
+        <div class="personal-progress-total">
+          <strong id="personalProgressTotal">0</strong>
+          <span>trái kỳ này</span>
+        </div>
+        <p class="clean-progress-sub" id="personalProgressMessage">Tiến độ của bạn</p>
+        <h3 class="visually-hidden" id="personalProgressTitle">Tiến độ</h3>
+        <div class="personal-progress-stages" id="personalProgressStages">
+          {% for stage in ['CK', 'TV', 'BB', 'Center'] %}
+          <div class="personal-progress-stage"><span>{{ stage }}</span><strong>0</strong></div>
+          {% endfor %}
+        </div>
+        {% if progress is defined and progress.get('total_target') %}
+        <div class="personal-goal-vs">
+          <div class="personal-goal-vs-track" role="progressbar" aria-valuenow="{{ motiv.get('percent', 0) }}" aria-valuemin="0" aria-valuemax="100">
+            <span style="width:{{ [100, motiv.get('percent', 0)]|min }}%"></span>
+          </div>
+          <small><strong>{{ progress.total_actual }}</strong> / {{ progress.total_target }} mục tiêu</small>
+        </div>
+        {% endif %}
+        <div class="personal-progress-actions clean-actions-row">
+          <a href="{{ url_for('muc_tieu_ca_nhan', kgt=current_kgt) }}" class="progress-action">Mục tiêu</a>
+          <a href="{{ url_for('lich_trinh_khai_giang', _anchor=current_kgt) }}" class="progress-action">Lịch tuần</a>
+        </div>
       </article>
-      <article class="overview-card">
-        <span class="overview-label">Thành viên có tiến độ</span>
-        <strong class="overview-value" id="activeMembers">0</strong>
-        <span class="overview-meta" id="activeMembersMeta">0 thành viên trong danh sách</span>
-      </article>
-      <article class="overview-card overview-card-leader">
-        <span class="overview-label">Đang dẫn đầu</span>
-        <strong class="overview-value overview-value-name" id="leadingMember">Chưa có dữ liệu</strong>
-        <span class="overview-meta" id="leadingMemberMeta">0 trái đã ghi nhận</span>
-      </article>
-      <article class="overview-card overview-card-stages">
-        <div class="overview-stage-head"><span class="overview-label">Phân bổ theo giai đoạn</span><span class="overview-meta">Tổng</span></div>
-        <div class="stage-summary" id="stageSummary"></div>
-      </article>
-    </div>
-    <div class="goal-progress-panel">
-      <div class="ranking-heading">
-        <div class="goal-progress-heading-content"><span class="chart-kicker">Đối chiếu mục tiêu</span><h3>Tiến độ so với mục tiêu Khu vực giao</h3><a class="goal-sheet-link" href="{{ goal_sheet_view_url }}" target="_blank" rel="noopener">Mở Google Sheet đối chiếu ↗</a></div>
-        <div class="goal-progress-filter">
-          <label for="goalYearSelect">Năm</label>
-          <select id="goalYearSelect">
+
+      <details class="stats-details stats-details-clean" id="statsDetails">
+        <summary>
+          <span class="stats-details-title">Chi tiết & biểu đồ</span>
+          <span class="stats-details-hint">Mở khi cần xem sâu hơn</span>
+        </summary>
+
+        {# Row of metric widgets #}
+        <div class="stat-widgets" aria-live="polite">
+          <article class="stat-widget stat-widget-primary">
+            <span class="stat-widget-label">Tổng trái</span>
+            <span class="stat-widget-icon" aria-hidden="true">Σ</span>
+            <strong class="stat-widget-value" id="overallTotal">0</strong>
+            <span class="stat-widget-meta" id="statsScopeLabel">Tất cả kỳ khai giảng</span>
+          </article>
+          <article class="stat-widget">
+            <span class="stat-widget-label">Streak</span>
+            <span class="stat-widget-icon" aria-hidden="true">↗</span>
+            <strong class="stat-widget-value">{{ motiv.get('streak', 0) }}</strong>
+            <span class="stat-widget-meta">{{ motiv.get('total_active_days', 0) }} ngày hoạt động</span>
+          </article>
+          <article class="stat-widget">
+            <span class="stat-widget-label">Mục tiêu kỳ</span>
+            <span class="stat-widget-icon" aria-hidden="true">◎</span>
+            <strong class="stat-widget-value">{{ motiv.get('percent', 0) }}%</strong>
+            <span class="stat-widget-meta">{{ motiv.get('total_actual', 0) }} / {{ motiv.get('total_target', 0) or '—' }}</span>
+          </article>
+        </div>
+
+        {# Compact filters — one row #}
+        <div class="stat-filter-bar">
+          <select id="kgtYearSelect" aria-label="Năm">
+            <option value="all">Mọi năm</option>
             {% for year in kgt_years %}<option value="{{ year }}" {{ 'selected' if year == current_kgt.split('-')[1]|int else '' }}>{{ year }}</option>{% endfor %}
           </select>
-          <label for="goalKgtSelect">Khai giảng</label>
-          <select id="goalKgtSelect">
-            {% for month in range(1, 13) %}<option value="{{ '%02d'|format(month) }}" {{ 'selected' if month == current_kgt.split('-')[2]|int else '' }}>Tháng {{ month }}</option>{% endfor %}
+          <select id="kgtChartSelect" aria-label="Kỳ khai giảng">
+            <option value="all">Mọi kỳ</option>
+            {% for month in range(1, 13) %}<option value="{{ '%02d'|format(month) }}">T{{ month }}</option>{% endfor %}
           </select>
+          <select id="stageChartSelect" aria-label="Giai đoạn">
+            <option value="total">Tổng</option>
+            <option value="0">CK</option>
+            <option value="1">TV</option>
+            <option value="2">BB</option>
+            <option value="3">Center</option>
+          </select>
+          <select id="statusChartSelect" aria-label="Trạng thái">
+            <option value="all" selected>Tất cả</option>
+            <option value="alive">Alive</option>
+            <option value="drop">Drop</option>
+          </select>
+          <select id="memberChartSelect" hidden></select>
         </div>
-        <button type="button" class="goal-progress-toggle" id="goalProgressToggle" aria-expanded="true" aria-controls="goalProgressGrid" aria-label="Thu gọn đối chiếu mục tiêu" title="Thu gọn đối chiếu mục tiêu"><span aria-hidden="true"></span></button>
-      </div>
-      <div class="goal-progress-grid" id="goalProgressGrid">
-        {% set initial_goal_rows = comparison_rows.get(current_kgt, chart_rows) %}
-        {% set initial_targets = comparison_targets.get(current_kgt, {}) %}
-        {% for row in initial_goal_rows %}
-        {% set target = initial_targets.get(row.member, {}) %}
-        <article class="goal-progress-row">
-          <h4>{{ row.member }}</h4>
-          <div class="goal-progress-cells">
-            {% for label, actual, goal in [
-              ('Tiếp cận', row.approach, target.get('Tiếp cận', 0)),
-              ('Chakki', row['values'][0], target.get('Chakki', 0)),
-              ('Tư vấn hình', row['values'][1], target.get('Tư vấn hình', 0)),
-              ('Tư vấn, BB', row['values'][2] * 0.5, target.get('Tư vấn, BB', 0))
-            ] %}
-            {% set percent = ((actual / goal) * 100)|round|int if goal else 0 %}
-            <div class="goal-progress-cell">
-              <div class="goal-progress-top"><span>{{ label }}</span><strong>{{ actual }}{% if label == 'Tư vấn, BB' %} điểm{% endif %}/{{ goal }}</strong></div>
-              <div class="goal-progress-track"><span style="width:{{ [100, percent]|min }}%"></span></div>
-              <small>{{ percent }}%</small>
+
+        {# Charts: bar + doughnut side by side on desktop, stack on mobile #}
+        <div class="stats-grid stats-grid-clean">
+          <article class="chart-panel chart-panel-wide clean-card">
+            <div class="chart-panel-head chart-panel-head-simple">
+              <h3 id="barChartTitle">Theo giai đoạn</h3>
             </div>
+            <div class="chart-wrap chart-wrap-bar"><canvas id="memberBarChart"></canvas></div>
+          </article>
+          <article class="chart-panel clean-card">
+            <div class="chart-panel-head chart-panel-head-simple">
+              <h3>Cơ cấu <span id="pieKgtLabel" class="chart-soft-label"></span></h3>
+            </div>
+            <div class="chart-wrap chart-wrap-pie"><canvas id="memberPieChart"></canvas></div>
+            <div class="stage-detail-list" id="stageDetailList"></div>
+          </article>
+        </div>
+
+        {# Stage distribution bars (filled by JS via stageSummary) #}
+        <article class="stat-stage-card clean-card">
+          <div class="stat-stage-heading">
+            <h3>Phân bổ giai đoạn</h3>
+            <span id="stageSummaryTotal">0 trái</span>
+          </div>
+          <div class="stage-summary" id="stageSummary"></div>
+        </article>
+
+        {# Goal comparison — simplified #}
+        <div class="goal-progress-panel clean-card">
+          <div class="ranking-heading ranking-heading-clean">
+            <div class="goal-progress-heading-content">
+              <h3>Đối chiếu mục tiêu</h3>
+              <a class="goal-sheet-link" href="{{ goal_sheet_view_url }}" target="_blank" rel="noopener">Sheet ↗</a>
+            </div>
+            <div class="goal-progress-filter goal-progress-filter-clean">
+              <select id="goalYearSelect" aria-label="Năm đối chiếu">
+                {% for year in kgt_years %}<option value="{{ year }}" {{ 'selected' if year == current_kgt.split('-')[1]|int else '' }}>{{ year }}</option>{% endfor %}
+              </select>
+              <select id="goalKgtSelect" aria-label="Tháng KGT">
+                {% for month in range(1, 13) %}<option value="{{ '%02d'|format(month) }}" {{ 'selected' if month == current_kgt.split('-')[2]|int else '' }}>T{{ month }}</option>{% endfor %}
+              </select>
+            </div>
+            <button type="button" class="goal-progress-toggle" id="goalProgressToggle" aria-expanded="true" aria-controls="goalProgressGrid" aria-label="Thu gọn"><span aria-hidden="true"></span></button>
+          </div>
+          <div class="goal-progress-grid" id="goalProgressGrid">
+            {% set initial_goal_rows = comparison_rows.get(current_kgt, chart_rows) %}
+            {% set initial_targets = comparison_targets.get(current_kgt, {}) %}
+            {% for row in initial_goal_rows %}
+            {% set target = initial_targets.get(row.member, {}) %}
+            <article class="goal-progress-row">
+              <h4>{{ row.member }}</h4>
+              <div class="goal-progress-cells">
+                {% for label, actual, goal in [
+                  ('Tiếp cận', row.approach, target.get('Tiếp cận', 0)),
+                  ('CK', row['values'][0], target.get('Chakki', 0)),
+                  ('TV', row['values'][1], target.get('Tư vấn hình', 0)),
+                  ('BB', row['values'][2] * 0.5, target.get('Tư vấn, BB', target.get('Tư vấn', 0) + target.get('BB', 0))),
+                  ('Center', row['values'][3], target.get('Center', 0))
+                ] %}
+                {% set percent = ((actual / goal) * 100)|round|int if goal else 0 %}
+                <div class="goal-progress-cell">
+                  <div class="goal-progress-top"><span>{{ label }}</span><strong>{{ actual }}{% if label == 'BB' %}đ{% endif %}/{{ goal }}</strong></div>
+                  <div class="goal-progress-track"><span style="width:{{ [100, percent]|min }}%"></span></div>
+                  <small>{{ percent }}%</small>
+                </div>
+                {% endfor %}
+              </div>
+            </article>
             {% endfor %}
           </div>
-        </article>
-        {% endfor %}
-      </div>
-    </div>
-    <div class="stats-grid">
-      <article class="chart-panel chart-panel-wide">
-        <div class="chart-panel-head">
-          <div><span class="chart-kicker">Tổng quan</span><h3 id="barChartTitle">Tổng trái theo thành viên</h3></div>
-          <div class="chart-control">
-            <label class="chart-select-label" for="kgtYearSelect">Năm</label>
-            <select id="kgtYearSelect">
-              <option value="all">Tất cả các năm</option>
-              {% for year in kgt_years %}<option value="{{ year }}" {{ 'selected' if year == current_kgt.split('-')[1]|int else '' }}>{{ year }}</option>{% endfor %}
-            </select>
-            <label class="chart-select-label" for="kgtChartSelect">Khai giảng</label>
-            <select id="kgtChartSelect">
-              <option value="all">Tất cả kỳ khai giảng</option>
-              {% for month in range(1, 13) %}<option value="{{ '%02d'|format(month) }}">Tháng {{ month }}</option>{% endfor %}
-            </select>
-            <label class="chart-select-label" for="stageChartSelect">Hiển thị</label>
-            <select id="stageChartSelect">
-              <option value="total">Tổng tất cả</option>
-              <option value="0">1. Chakki</option>
-              <option value="1">2. Tư vấn hình</option>
-              <option value="2">3. Tư vấn, BB</option>
-              <option value="3">4. Center</option>
-            </select>
-            <label class="chart-select-label" for="statusChartSelect">Trạng thái</label>
-            <select id="statusChartSelect">
-              <option value="alive">Alive</option>
-              <option value="drop">Drop</option>
-              <option value="all" selected>Alive + Drop</option>
-            </select>
+        </div>
+
+        <div class="fruit-detail-list" id="fruitDetailList" role="dialog" aria-modal="true" aria-labelledby="fruitDetailTitle">
+          <div class="fruit-detail-modal">
+            <div class="fruit-detail-modal-head">
+              <div><h3 id="fruitDetailTitle">Chi tiết trái</h3></div>
+              <button type="button" class="fruit-detail-close" id="fruitDetailClose" aria-label="Đóng">&times;</button>
+            </div>
+            <div class="fruit-detail-content"></div>
           </div>
         </div>
-        <div class="chart-wrap"><canvas id="memberBarChart"></canvas></div>
-      </article>
-      <article class="chart-panel">
-        <div class="chart-panel-head chart-panel-head-stack">
-          <div><span class="chart-kicker">Chi tiết <span id="pieKgtLabel">· Tất cả kỳ khai giảng</span></span><h3>Cơ cấu giai đoạn</h3></div>
-          <label class="chart-select-label" for="memberChartSelect">Thành viên đang xem</label>
-          <select id="memberChartSelect"></select>
-        </div>
-        <div class="chart-wrap chart-wrap-pie"><canvas id="memberPieChart"></canvas></div>
-        <div class="stage-detail-list" id="stageDetailList"></div>
-      </article>
+      </details>
     </div>
 
-    <div class="fruit-detail-list" id="fruitDetailList" role="dialog" aria-modal="true" aria-labelledby="fruitDetailTitle">
-      <div class="fruit-detail-modal">
-        <div class="fruit-detail-modal-head">
-          <div><span class="chart-kicker">Chi tiết thành viên</span><h3 id="fruitDetailTitle">Chi tiết trái</h3></div>
-          <button type="button" class="fruit-detail-close" id="fruitDetailClose" aria-label="Đóng chi tiết">&times;</button>
+    <aside class="member-dashboard-aside clean-aside" aria-label="Thông tin nhanh">
+      <article class="member-aside-card clean-card">
+        <h3>Mục tiêu</h3>
+        {% if goal_data %}
+        <div class="member-aspiration-list">
+          <div><span>CK</span><strong>{{ goal_data.get('Chakki mục tiêu', goal_data.get('chakki_target', 0)) }}</strong></div>
+          <div><span>TV</span><strong>{{ goal_data.get('Tư vấn hình mục tiêu', goal_data.get('tu_van_hinh_target', 0)) }}</strong></div>
+          <div><span>BB</span><strong>{{ goal_data.get('Tư vấn, BB mục tiêu', goal_data.get('tu_van_bb_target', 0)) }}</strong></div>
         </div>
-        <div class="fruit-detail-content"></div>
-      </div>
-    </div>
+        {% else %}
+        <p class="member-aside-empty">Chưa đặt mục tiêu kỳ này.</p>
+        {% endif %}
+        <a class="member-aside-link" href="{{ url_for('muc_tieu_ca_nhan', kgt=current_kgt) }}">{{ 'Chỉnh sửa' if goal_data else 'Đặt ngay' }} →</a>
+      </article>
 
-    <div class="personal-table-wrap">
-      <div class="ranking-heading">
-        <div><span class="chart-kicker">Bảng thành tích</span><h3>Xếp hạng theo <span id="rankingKgtLabel">Tất cả kỳ khai giảng</span></h3></div>
-      </div>
-      <table class="personal-table">
-        <thead><tr><th>Hạng</th><th>Thành viên</th><th>Chakki</th><th>Tư vấn hình</th><th>Tư vấn, BB (trái)</th><th>Center</th><th>Tổng trái</th></tr></thead>
-        <tbody id="personalTableBody">
-          {% for row in chart_rows %}
-          <tr><td class="rank-number">{{ loop.index }}</td><th>{{ row.member }}</th>{% for value in row['values'] %}<td>{{ value }}</td>{% endfor %}<td class="personal-total">{{ row['values']|sum }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      <article class="member-aside-card member-upcoming-card clean-card">
+        <h3>Tuần này</h3>
+        {% for week in focus_weeks[:2] %}
+        <div class="member-week-peek">
+          <div class="member-week-peek-head"><strong>{{ week.week }}</strong></div>
+          {% if week.event %}<em>{{ week.event }}</em>{% endif %}
+        </div>
+        {% else %}
+        <p class="member-aside-empty">Chưa có lịch.</p>
+        {% endfor %}
+        <a class="member-aside-link" href="{{ url_for('lich_trinh_khai_giang', _anchor=current_kgt) }}">Xem lịch →</a>
+      </article>
+    </aside>
   </div>
 </section>
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if celebrate_save is defined and celebrate_save %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (window.Dlt4Celebrate) window.Dlt4Celebrate({ message: 'Đã lưu mục tiêu của bạn!' });
+});
+</script>
+{% endif %}
 {% if show_stats %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
 const personalGoalData = {
   stages: {{ [{"ten": "1. Chakki"}, {"ten": "2. Tư vấn hình"}, {"ten": "3. Tư vấn, BB"}, {"ten": "4. Center"}]|tojson }},
@@ -248,22 +328,23 @@ const personalGoalData = {
 };
 const chartColors = ['#C1442C', '#6E8F4C', '#9E3320', '#D8A23B'];
 const memberSelect = document.getElementById('memberChartSelect');
+const personalMember = {{ current_member|tojson }};
+const personalProgressTitle = document.getElementById('personalProgressTitle');
+const personalProgressMessage = document.getElementById('personalProgressMessage');
+const personalProgressTotal = document.getElementById('personalProgressTotal');
+const personalProgressStages = document.getElementById('personalProgressStages');
 const yearSelect = document.getElementById('kgtYearSelect');
 const kgtSelect = document.getElementById('kgtChartSelect');
 const stageSelect = document.getElementById('stageChartSelect');
 const statusSelect = document.getElementById('statusChartSelect');
 const barChartTitle = document.getElementById('barChartTitle');
-const tableBody = document.getElementById('personalTableBody');
 const overallTotal = document.getElementById('overallTotal');
-const activeMembers = document.getElementById('activeMembers');
-const activeMembersMeta = document.getElementById('activeMembersMeta');
-const leadingMember = document.getElementById('leadingMember');
-const leadingMemberMeta = document.getElementById('leadingMemberMeta');
+const statsScopeLabel = document.getElementById('statsScopeLabel');
 const stageSummary = document.getElementById('stageSummary');
+const stageSummaryTotal = document.getElementById('stageSummaryTotal');
 const pieKgtLabel = document.getElementById('pieKgtLabel');
 const stageDetailList = document.getElementById('stageDetailList');
 const fruitDetailList = document.getElementById('fruitDetailList');
-const rankingKgtLabel = document.getElementById('rankingKgtLabel');
 const goalProgressGrid = document.getElementById('goalProgressGrid');
 const goalProgressToggle = document.getElementById('goalProgressToggle');
 const goalYearSelect = document.getElementById('goalYearSelect');
@@ -296,10 +377,6 @@ const doughnutCenterText = {
     ctx.restore();
   }
 };
-if (typeof Chart !== 'undefined') {
-  Chart.register(doughnutCenterText);
-}
-
 function selectedKgtKeys() {
   const year = yearSelect.value;
   const month = kgtSelect.value;
@@ -336,10 +413,12 @@ function currentRows() {
 function currentFilterLabel() {
   const year = yearSelect.value;
   const month = kgtSelect.value;
-  if (year === 'all' && month === 'all') return 'Tất cả kỳ khai giảng';
-  if (year === 'all') return `Tháng ${Number(month)} mọi năm`;
-  if (month === 'all') return `Năm ${year}`;
-  return `Khai giảng tháng ${Number(month)}/${year}`;
+  let label = 'Tất cả kỳ khai giảng';
+  if (year === 'all' && month !== 'all') label = `Tháng ${Number(month)} mọi năm`;
+  else if (year !== 'all' && month === 'all') label = `Năm ${year}`;
+  else if (year !== 'all') label = `Khai giảng tháng ${Number(month)}/${year}`;
+  if (statusSelect.value !== 'all') label += ` · ${statusSelect.options[statusSelect.selectedIndex].text}`;
+  return label;
 }
 
 function syncKgtMonths() {
@@ -362,59 +441,53 @@ function syncMemberOptions(rows) {
   if (rows.some(row => row.member === selectedMember)) memberSelect.value = selectedMember;
 }
 
+function renderPersonalSummary(member) {
+  const currentKgtRows = personalGoalData.kgtRows[personalGoalData.defaultKgt] || [];
+  const row = currentKgtRows.find(item => item.member === member);
+  const values = row ? row.values.map(value => Number(value || 0)) : [0, 0, 0, 0];
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const period = formatKgtLabel(personalGoalData.defaultKgt);
+  personalProgressTitle.textContent = total
+    ? `${member} đã ghi nhận ${total} trái`
+    : 'Mỗi bước đều đáng ghi nhận';
+  personalProgressMessage.textContent = total
+    ? `Tiến độ trong ${period}. Cứ đi theo nhịp phù hợp với bạn.`
+    : `Chưa có số liệu trong ${period}. Khi sẵn sàng, bạn có thể bắt đầu từ một bước nhỏ.`;
+  personalProgressTotal.textContent = total;
+  personalProgressStages.querySelectorAll('.personal-progress-stage strong').forEach((element, index) => {
+    element.textContent = values[index] || 0;
+  });
+}
+
 function renderOverview(rows) {
-  const rowTotals = rows.map(row => ({ member: row.member, total: row.values.reduce((sum, value) => sum + Number(value || 0), 0) }));
   const stageTotals = personalGoalData.stages.map((stage, index) => rows.reduce((sum, row) => sum + Number(row.values[index] || 0), 0));
   const total = stageTotals.reduce((sum, value) => sum + value, 0);
-  const active = rowTotals.filter(row => row.total > 0).length;
-  const leaderTotal = Math.max(0, ...rowTotals.map(row => row.total));
-  const leaders = rowTotals.filter(row => row.total === leaderTotal && leaderTotal > 0);
-  const maxStage = Math.max(1, ...stageTotals);
 
   overallTotal.textContent = total;
-  activeMembers.textContent = active;
-  activeMembersMeta.textContent = `${active}/${rows.length} thành viên trong danh sách`;
-  leadingMember.textContent = leaders.length === 1
-    ? leaders[0].member
-    : leaders.length
-      ? `${leaders.length}/${rows.length} thành viên đồng hạng`
-      : 'Chưa có dữ liệu';
-  leadingMember.title = leaders.map(row => row.member).join(', ');
-  leadingMemberMeta.textContent = leaders.length
-    ? `${leaderTotal} trái mỗi người`
-    : '0 trái đã ghi nhận';
-  stageSummary.innerHTML = stageTotals.map((value, index) => `
+  statsScopeLabel.textContent = currentFilterLabel();
+  stageSummaryTotal.textContent = `${total} trái`;
+  stageSummary.innerHTML = stageTotals.map((value, index) => {
+    const share = total ? Math.round((value / total) * 100) : 0;
+    return `
     <div class="stage-summary-row">
       <span>${personalGoalData.stages[index].ten.replace(/^\d+\.\s*/, '')}</span>
       <span class="stage-summary-value">${value}</span>
-      <span class="stage-summary-track"><span style="width:${(value / maxStage) * 100}%; background:${chartColors[index]}"></span></span>
-    </div>`).join('');
-}
-
-function renderTable(rows) {
-  const rankedRows = rows.map(row => ({
-    ...row,
-    total: row.values.reduce((sum, value) => sum + Number(value || 0), 0)
-  })).sort((left, right) => right.total - left.total || left.member.localeCompare(right.member, 'vi'));
-  let previousTotal = null;
-  let previousRank = 0;
-  tableBody.innerHTML = rankedRows.map((row, index) => {
-    const rank = row.total === previousTotal ? previousRank : index + 1;
-    previousTotal = row.total;
-    previousRank = rank;
-    return `<tr><td class="rank-number rank-${rank}">${rank}</td><th>${row.member}</th>${row.values.map(value => `<td>${value}</td>`).join('')}<td class="personal-total">${row.total}</td></tr>`;
+      <span class="stage-summary-track" role="img" aria-label="${share}%"><span style="width:${share}%; background:${chartColors[index]}"></span></span>
+      <small class="stage-summary-share">${share}%</small>
+    </div>`;
   }).join('');
 }
 
 function renderGoalProgress() {
   const comparisonKgt = `KGT-${goalYearSelect.value}-${goalKgtSelect.value}`;
-  const comparisonRows = (personalGoalData.kgtRows[comparisonKgt] || personalGoalData.comparisonRows[comparisonKgt] || []).map(filteredRow);
+  const comparisonRows = (personalGoalData.comparisonRows[comparisonKgt] || personalGoalData.kgtRows[comparisonKgt] || []).map(filteredRow);
   const targets = personalGoalData.comparisonTargetsByKgt[comparisonKgt] || {};
   const progressStages = [
     ['Tiếp cận', row => row.approach || 0],
     ['Chakki', row => row.values[0] || 0],
     ['Tư vấn hình', row => row.values[1] || 0],
-    ['Tư vấn, BB', row => (row.values[2] || 0) * 0.5]
+    ['Tư vấn, BB', row => (row.values[2] || 0) * 0.5],
+    ['Center', row => row.values[3] || 0]
   ];
   if (!comparisonRows.length) {
     goalProgressGrid.innerHTML = '<div class="goal-progress-empty">Chưa có dữ liệu đối chiếu cho kỳ khai giảng này.</div>';
@@ -427,12 +500,16 @@ function renderGoalProgress() {
       const actual = Number(getActual(row) || 0);
       const percent = goal ? Math.round((actual / goal) * 100) : 0;
       const actualLabel = label === 'Tư vấn, BB' ? `${actual} điểm` : actual;
+      const targetBreakdown = label === 'Tư vấn, BB'
+        ? `<small class="goal-target-breakdown">TV ${Number(target['Tư vấn'] || 0)} · BB ${Number(target.BB || 0)}</small>`
+        : '';
       const approachControls = label === 'Tiếp cận'
         ? `<div class="approach-controls"><button type="button" class="approach-button" data-member="${row.member}" data-kgt="${comparisonKgt}" data-delta="-1" aria-label="Giảm Tiếp cận">−</button><button type="button" class="approach-button" data-member="${row.member}" data-kgt="${comparisonKgt}" data-delta="1" aria-label="Tăng Tiếp cận">+</button></div>`
         : '';
       return `<div class="goal-progress-cell">
         <div class="goal-progress-top"><span>${label} ${approachControls}</span><strong>${actualLabel}/${goal}</strong></div>
         <div class="goal-progress-track"><span style="width:${Math.min(100, percent)}%"></span></div>
+        ${targetBreakdown}
         <small>${percent}%</small>
       </div>`;
     }).join('');
@@ -486,10 +563,11 @@ function chartMemberLabel(member) {
 }
 
 function renderCharts() {
+  if (typeof Chart === 'undefined') return;
   const labels = personalGoalData.stages.map(stage => stage.ten);
   const rows = currentRows();
   syncMemberOptions(rows);
-  rankingKgtLabel.textContent = currentFilterLabel();
+  renderPersonalSummary(memberSelect.value);
   const row = selectedRow(rows);
   const rawPieValues = row ? row.values.map(value => Number(value || 0)) : [0, 0, 0, 0];
   const pieTotal = rawPieValues.reduce((sum, value) => sum + value, 0);
@@ -552,7 +630,6 @@ function renderCharts() {
   renderStageDetails(row);
   hideFruitDetails();
   renderOverview(rows);
-  renderTable(rows);
   renderGoalProgress();
 }
 
@@ -578,6 +655,9 @@ goalProgressGrid.addEventListener('click', async event => {
     const kgtRows = personalGoalData.kgtRows[result.kgt] || [];
     const row = kgtRows.find(item => item.member === result.member);
     if (row) row.approach = result.approach;
+    const comparisonRows = personalGoalData.comparisonRows[result.kgt] || [];
+    const comparisonRow = comparisonRows.find(item => item.member === result.member);
+    if (comparisonRow) comparisonRow.approach = result.approach;
     personalGoalData.rows.forEach(baseRow => {
       baseRow.approach = Object.values(personalGoalData.kgtRows)
         .flat()
@@ -606,10 +686,41 @@ fruitDetailList.addEventListener('click', event => {
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') hideFruitDetails();
 });
+renderPersonalSummary(personalMember || '');
+renderOverview(currentRows());
 renderGoalProgress();
-if (typeof Chart !== 'undefined') {
-  renderCharts();
+let chartLoadPromise;
+let chartPluginRegistered = false;
+function registerChartPlugin() {
+  if (chartPluginRegistered) return;
+  Chart.register(doughnutCenterText);
+  chartPluginRegistered = true;
 }
+function loadChartsOnDemand() {
+  if (typeof Chart !== 'undefined') {
+    registerChartPlugin();
+    renderCharts();
+    return Promise.resolve();
+  }
+  if (!chartLoadPromise) {
+    chartLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';
+        script.onload = () => {
+          registerChartPlugin();
+        renderCharts();
+        resolve();
+      };
+      script.onerror = () => reject(new Error('Không tải được biểu đồ lúc này.'));
+      document.head.appendChild(script);
+    });
+    chartLoadPromise.catch(() => { chartLoadPromise = null; });
+  }
+  return chartLoadPromise;
+}
+document.getElementById('statsDetails').addEventListener('toggle', event => {
+  if (event.currentTarget.open) loadChartsOnDemand().catch(() => {});
+});
 </script>
 {% endif %}
 {% endblock %}

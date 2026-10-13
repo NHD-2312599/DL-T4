@@ -8,6 +8,21 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    MEMBER_ACCOUNTS_FILE = os.environ.get(
+        "MEMBER_ACCOUNTS_FILE", os.path.join(BASE_DIR, "member_accounts.json")
+    )
+    MEMBER_ACCOUNTS_JSON = os.environ.get("MEMBER_ACCOUNTS_JSON", "")
+    PERSONAL_GOALS_DB_PATH = (
+        os.environ.get("DATABASE_URL")
+        or os.environ.get("POSTGRES_URL")
+        or os.environ.get(
+            "PERSONAL_GOALS_DB_PATH",
+            os.path.join(BASE_DIR, "instance", "personal_goals.sqlite3"),
+        )
+    )
 
     # ID của Google Sheet (lấy từ URL, đoạn giữa /d/ và /edit)
     GOOGLE_SHEET_ID = os.environ.get(
@@ -32,6 +47,7 @@ class Config:
     GOOGLE_CREDENTIALS_PATH = os.environ.get("GOOGLE_CREDENTIALS_PATH") or os.path.join(
         BASE_DIR, "dlt4", "credentials.json"
     )
+    GOOGLE_CREDENTIALS_JSON = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
 
     # Danh sách người nhập (NDD/TVV) hiển thị trong dropdown - lấy đúng theo
     # danh sách viết tắt đang dùng trong Google Sheet gốc.

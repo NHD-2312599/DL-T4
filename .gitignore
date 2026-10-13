@@ -1,7 +1,10 @@
 .env
 credentials.json
 dlt4/credentials.json
+member_accounts.json
 __pycache__/
 *.pyc
+instance/
+*.sqlite3*
 .venv/
 venv/

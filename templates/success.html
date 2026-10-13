@@ -13,13 +13,19 @@
     <h1 class="page-title">Đã lưu vào Google Sheet</h1>
     <div class="success-message" role="status" aria-live="polite">
       <strong>Chúc mừng bạn!</strong>
-      <span>Thông tin đã được ghi nhận thành công. Hãy tiếp tục cố gắng và phát huy nhé!</span>
+      <span>Thông tin đã được ghi nhận thành công. Một bước nữa trên hành trình — hãy tự hào về điều đó nhé!</span>
     </div>
     <p class="page-sub">
       {% if ten %}Thông tin của <strong>{{ ten }}</strong> đã được ghi lại.{% else %}Thông tin trái đã được ghi lại.{% endif %}
       Bạn có thể mở Google Sheet của tổ để kiểm tra dòng vừa nhập.
     </p>
     {% if record_id %}<p class="page-sub">Mã bản ghi: <strong>{{ record_id }}</strong></p>{% endif %}
+
+    <div class="success-motivation" aria-hidden="false">
+      <span class="success-motivation-emoji">🌱</span>
+      <p id="successMotivationText">Mỗi trái đều là một bước tiến. Cứ đi theo nhịp của bạn.</p>
+    </div>
+
     <div class="copy-panel">
       <div class="copy-panel-head">
         <h2>Bản copy để gửi</h2>
@@ -36,8 +42,44 @@
         {% if record_id %}<a href="{{ url_for('update_master', record_id=record_id) }}" class="btn btn-primary">Cập nhật trái này</a>{% endif %}
         <a href="{{ url_for('form_tao_xanh') }}" class="btn btn-primary">Nhập thêm trái táo xanh</a>
       {% endif %}
-      <a href="{{ url_for('landing') }}" class="btn btn-ghost">Về trang chủ</a>
+      <a href="{{ url_for('thong_so_ca_nhan') if session.get('member') else url_for('landing') }}" class="btn btn-ghost">{{ 'Xem hành trình của mình' if session.get('member') else 'Về trang chủ' }}</a>
     </div>
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var lines = [
+    'Mỗi trái đều là một bước tiến. Cứ đi theo nhịp của bạn.',
+    'Tuyệt vời! Hôm nay bạn đã thêm một dấu chân trên hành trình.',
+    'Kiên trì từng bước nhỏ — đó chính là cách đi xa.',
+    'Bạn vừa ghi nhận thêm một thành quả. Hãy tự thưởng cho mình nhé!',
+    'Một trái hôm nay, cả mùa vụ sau này. Giữ nhịp này nhé.'
+  ];
+  var el = document.getElementById('successMotivationText');
+  if (el) el.textContent = lines[Math.floor(Math.random() * lines.length)];
+  if (window.Dlt4Celebrate) window.Dlt4Celebrate({ message: 'Đã lưu thành công!' });
+
+  var btn = document.getElementById('copyTextButton');
+  var area = document.getElementById('copyText');
+  var status = document.getElementById('copyStatus');
+  if (btn && area) {
+    btn.addEventListener('click', function () {
+      area.select();
+      try {
+        document.execCommand('copy');
+        if (status) status.textContent = 'Đã sao chép!';
+      } catch (e) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(area.value).then(function () {
+            if (status) status.textContent = 'Đã sao chép!';
+          });
+        }
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

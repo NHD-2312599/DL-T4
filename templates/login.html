@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Đăng nhập mục tiêu cá nhân — ĐL-T4{% endblock %}
+
+{% block content %}
+<section class="section login-section">
+  <div class="login-card">
+    <span class="panel-kicker">🌱 Góc nhỏ của bạn</span>
+    <h1 class="page-title">Đăng nhập</h1>
+    <p class="page-sub">Thành viên vào góc mục tiêu riêng; quản trị viên xem bức tranh chung của cả đội.</p>
+    {% if accounts_ready %}
+    <form method="POST" class="login-form">
+      <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+      <label class="field">
+        <span class="field-label">Tên đăng nhập</span>
+        <input type="text" name="username" autocomplete="username" required autofocus placeholder="Mã tài khoản của bạn">
+      </label>
+      <label class="field">
+        <span class="field-label">Mật khẩu</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Đăng nhập</button>
+    </form>
+    {% else %}
+    <div class="login-setup-note" role="status">
+      Góc mục tiêu cá nhân đang được chuẩn bị mở. Quản trị viên cần tạo tài khoản riêng trước; khi sẵn sàng, mỗi thành viên sẽ nhận tên đăng nhập và mật khẩu của mình.
+    </div>
+    {% endif %}
+    <a class="login-home-link" href="{{ url_for('landing') }}">← Về trang chủ</a>
+  </div>
+</section>
+{% endblock %}
