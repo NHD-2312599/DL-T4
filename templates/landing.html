@@ -1,99 +1,417 @@
-{% extends "base.html" %}
-{% block title %}ĐL-T4 — Theo dõi hành trình trái{% endblock %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF6EC">
+  <title>ĐL-T4 — Đã chuyển tên miền mới</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --nen:        #FBF6EC;
+      --nen-2:      #F3ECDC;
+      --than:       #2E4A3A;
+      --than-nhat:  #5B7466;
+      --do:         #C1442C;
+      --do-toi:     #9E3320;
+      --xanh:       #6E8F4C;
+      --xanh-toi:   #566F3C;
+      --vang:       #D8A23B;
+      --line:       #E2D8C2;
+      --trang:      #FFFFFF;
+      --font-display: "Fraunces", Georgia, serif;
+      --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: "IBM Plex Mono", monospace;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 4px 18px rgba(46, 74, 58, 0.08);
+      --shadow-lift: 0 12px 36px rgba(46, 74, 58, 0.14);
+    }
 
-{% block content %}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-<section class="hero">
-  <div class="hero-inner hero-layout">
-    <div class="hero-copy">
-      <p class="eyebrow">ĐL · Tổ 4 / workspace</p>
-      <h1 class="hero-title">Hành trình<br>từ <span class="tag-do">Chakki</span> đến <span class="tag-xanh">Center</span>.</h1>
-      <p class="hero-sub">
-        ĐL-T4 là nơi tổ nhập, lưu và theo dõi thông tin từng trái qua 4 giai đoạn —
-        dữ liệu bạn nhập ở đây được ghi thẳng vào Google Sheet của tổ.
-      </p>
-      <div class="hero-actions">
-        <a href="{{ url_for('select_form') }}" class="btn btn-primary">Nhập thông tin trái</a>
-        <a href="{{ url_for('thong_so_ca_nhan') }}" class="btn btn-ghost">Mở thông số cá nhân</a>
+    html { height: 100%; }
+
+    body {
+      min-height: 100%;
+      font-family: var(--font-body);
+      background: var(--nen);
+      color: var(--than);
+      line-height: 1.55;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* soft background pattern */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 15% 20%, rgba(110, 143, 76, 0.07) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 45% at 85% 75%, rgba(193, 68, 44, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 50% 100%, rgba(216, 162, 59, 0.05) 0%, transparent 45%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 20px 40px;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* brand */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 40px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, var(--xanh) 0%, var(--xanh-toi) 100%);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 4px 14px rgba(86, 111, 60, 0.28);
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .brand-text {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-sub {
+      font-size: 0.75rem;
+      color: var(--than-nhat);
+      font-weight: 500;
+      margin-top: 1px;
+    }
+
+    /* main card */
+    .card {
+      width: 100%;
+      background: var(--trang);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow-lift);
+      overflow: hidden;
+      animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-top {
+      padding: 36px 36px 28px;
+      text-align: center;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #FFFEF9 0%, var(--trang) 100%);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px 6px 10px;
+      background: rgba(216, 162, 59, 0.12);
+      border: 1px solid rgba(216, 162, 59, 0.28);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #9A6E1A;
+      letter-spacing: 0.02em;
+      margin-bottom: 22px;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--vang);
+      box-shadow: 0 0 0 3px rgba(216, 162, 59, 0.25);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.7; transform: scale(0.9); }
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: clamp(1.65rem, 4.5vw, 2.15rem);
+      line-height: 1.25;
+      letter-spacing: -0.025em;
+      margin-bottom: 14px;
+      color: var(--than);
+    }
+
+    .lead {
+      font-size: 1.02rem;
+      color: var(--than-nhat);
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    /* domain comparison */
+    .card-body {
+      padding: 28px 36px 32px;
+    }
+
+    .domain-row {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .domain-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--nen);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .domain-box.old {
+      opacity: 0.72;
+    }
+
+    .domain-box.new {
+      background: linear-gradient(135deg, rgba(110, 143, 76, 0.08) 0%, rgba(110, 143, 76, 0.03) 100%);
+      border-color: rgba(110, 143, 76, 0.35);
+      box-shadow: 0 2px 12px rgba(86, 111, 60, 0.08);
+    }
+
+    .domain-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-size: 1.15rem;
+    }
+
+    .domain-box.old .domain-icon {
+      background: rgba(193, 68, 44, 0.1);
+      color: var(--do);
+    }
+
+    .domain-box.new .domain-icon {
+      background: rgba(110, 143, 76, 0.15);
+      color: var(--xanh-toi);
+    }
+
+    .domain-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .domain-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--than-nhat);
+      margin-bottom: 3px;
+    }
+
+    .domain-url {
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: var(--than);
+      word-break: break-all;
+    }
+
+    .domain-box.old .domain-url {
+      text-decoration: line-through;
+      text-decoration-color: rgba(193, 68, 44, 0.45);
+      color: var(--than-nhat);
+    }
+
+    .domain-box.new .domain-url {
+      color: var(--xanh-toi);
+    }
+
+    .arrow-between {
+      display: flex;
+      justify-content: center;
+      margin: -4px 0;
+      color: var(--than-nhat);
+      font-size: 1.1rem;
+      opacity: 0.6;
+    }
+
+    /* CTA */
+    .cta-wrap {
+      text-align: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px 28px;
+      border-radius: 999px;
+      font-family: var(--font-body);
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(160deg, var(--xanh) 0%, var(--xanh-toi) 100%);
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(86, 111, 60, 0.32);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(86, 111, 60, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .hint {
+      margin-top: 16px;
+      font-size: 0.85rem;
+      color: var(--than-nhat);
+    }
+
+    .hint a {
+      color: var(--xanh-toi);
+      font-weight: 500;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* footer note */
+    .footer-note {
+      margin-top: 36px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--than-nhat);
+      max-width: 380px;
+    }
+
+    .footer-note strong {
+      color: var(--than);
+      font-weight: 600;
+    }
+
+    /* responsive */
+    @media (max-width: 520px) {
+      .page { padding: 32px 16px 28px; }
+      .card-top, .card-body { padding-left: 22px; padding-right: 22px; }
+      .card-top { padding-top: 28px; padding-bottom: 22px; }
+      .card-body { padding-bottom: 26px; }
+      h1 { font-size: 1.5rem; }
+      .domain-url { font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <a class="brand" href="https://dlt4.vercel.app" aria-label="ĐL-T4">
+      <span class="brand-mark" aria-hidden="true">🍎</span>
+      <span>
+        <span class="brand-text">ĐL-T4</span>
+        <span class="brand-sub" style="display:block">Tổ 4 · workspace</span>
+      </span>
+    </a>
+
+    <div class="card">
+      <div class="card-top">
+        <div class="badge">
+          <span class="badge-dot"></span>
+          Thông báo quan trọng
+        </div>
+        <h1>Chúng tôi đã chuyển<br>sang tên miền mới</h1>
+        <p class="lead">
+          Để phục vụ tốt hơn và ổn định hơn, ĐL-T4 chính thức chuyển sang địa chỉ mới.
+        </p>
       </div>
-      <div class="hero-links">
-        <a href="{{ url_for('explanation') }}">Xem chi tiết 4 giai đoạn →</a>
-        <a href="{{ sheet_view_url }}" target="_blank" rel="noopener">Mở Google Sheet ↗</a>
+
+      <div class="card-body">
+        <div class="domain-row">
+          <div class="domain-box old">
+            <div class="domain-icon" aria-hidden="true">✕</div>
+            <div class="domain-meta">
+              <div class="domain-label">Tên miền cũ</div>
+              <div class="domain-url">dl-t4.onrender.com</div>
+            </div>
+          </div>
+
+          <div class="arrow-between" aria-hidden="true">↓</div>
+
+          <div class="domain-box new">
+            <div class="domain-icon" aria-hidden="true">✓</div>
+            <div class="domain-meta">
+              <div class="domain-label">Tên miền mới</div>
+              <div class="domain-url">dlt4.vercel.app</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cta-wrap">
+          <a class="btn btn-primary" href="https://dlt4.vercel.app">
+            Đi đến trang mới
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 10h12M11 5l5 5-5 5"/>
+            </svg>
+          </a>
+          <p class="hint">
+            Hoặc truy cập trực tiếp:
+            <a href="https://dlt4.vercel.app">https://dlt4.vercel.app</a>
+          </p>
+        </div>
       </div>
     </div>
-    <aside class="hero-dashboard" aria-label="Tổng quan hệ thống">
-      <div class="hero-dashboard-head"><span>ĐL-T4 / overview</span><i></i><strong>LIVE</strong></div>
-      <div class="hero-dashboard-title"><span>Dữ liệu trái</span><b>4</b><small>giai đoạn đang theo dõi</small></div>
-      <div class="hero-stage-list">
-        {% for g in giai_doan %}
-        <div class="hero-stage-item"><span class="hero-stage-dot hero-stage-dot-{{ g.mau }}"></span><span><b>{{ g.so }}. {{ g.ten }}</b><small>{{ g.thoi_gian }}</small></span><em>0{{ g.so }}</em></div>
-        {% endfor %}
-      </div>
-      <div class="hero-dashboard-foot"><span>Google Sheet connected</span><a href="{{ url_for('muc_tieu_ca_nhan') }}">Mục tiêu cá nhân →</a></div>
-    </div>
+
+    <p class="footer-note">
+      Vui lòng cập nhật bookmark / liên kết cũ của bạn.<br>
+      Mọi dữ liệu và chức năng vẫn giữ nguyên trên <strong>dlt4.vercel.app</strong>.
+    </p>
   </div>
-
-</section>
-
-<section class="section features">
-  <div class="section-inner">
-    <div class="section-heading-row"><div><span class="section-kicker">01 · Nhập và cập nhật</span><h2 class="section-title">Đưa dữ liệu vào đúng chỗ</h2><p class="section-sub">Chọn đúng loại mẫu theo giai đoạn của trái để dữ liệu vào đúng cột trong Sheet.</p></div><a class="section-arrow-link" href="{{ url_for('select_form') }}">Mở khu nhập liệu →</a></div>
-
-    <div class="feature-grid">
-      <a href="{{ url_for('form_tao_do') }}" class="feature-card feature-do">
-        <span class="feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 40 40" width="34" height="34"><circle cx="20" cy="22" r="14" fill="var(--do)"/><path d="M20 8 C20 4,24 4,24 8" stroke="var(--than)" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
-        </span>
-        <h3>Trái táo đỏ</h3>
-        <p>Dùng ở giai đoạn 1 — Chakki. Ghi nhận thông tin ban đầu, công cụ, concept.</p>
-        <span class="feature-link">Điền mẫu táo đỏ →</span>
-      </a>
-
-      <a href="{{ url_for('form_tao_xanh') }}" class="feature-card feature-xanh">
-        <span class="feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 40 40" width="34" height="34"><circle cx="20" cy="22" r="14" fill="var(--xanh)"/><path d="M20 8 C20 4,24 4,24 8" stroke="var(--than)" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
-        </span>
-        <h3>Trái táo xanh</h3>
-        <p>Dùng ở giai đoạn 2 — Tư vấn hình. Thông tin chi tiết 22 mục để chuẩn bị tư vấn.</p>
-        <span class="feature-link">Điền mẫu táo xanh →</span>
-      </a>
-
-      <a href="{{ url_for('update_master_lookup') }}" class="feature-card feature-neutral">
-        <span class="feature-icon feature-update-icon" aria-hidden="true">↻</span>
-        <span class="select-stage">Đã nhập trước đó</span>
-        <h3>Cập nhật trái đã nhập</h3>
-        <p>Bạn muốn cập nhật trái nào? Chọn đúng trái để cập nhật giai đoạn và tình trạng trên dòng cũ.</p>
-        <span class="feature-link">Chọn trái để cập nhật →</span>
-      </a>
-
-      <a href="{{ url_for('muc_tieu_ca_nhan') }}" class="feature-card feature-goal">
-        <span class="feature-icon feature-goal-icon" aria-hidden="true">↗</span>
-        <span class="select-stage">Theo dõi tiến độ</span>
-        <h3>Mục tiêu cá nhân</h3>
-        <p>Nhập Tiếp cận, theo dõi mục tiêu theo kỳ khai giảng và đối chiếu tiến độ từng thành viên.</p>
-        <span class="feature-link">Mở mục tiêu cá nhân →</span>
-      </a>
-    </div>
-  </div>
-</section>
-
-<section class="section stages-preview">
-  <div class="section-inner">
-    <div class="section-heading-row"><div><span class="section-kicker">02 · Luồng phát triển</span><h2 class="section-title">4 giai đoạn của một trái</h2></div><a class="section-arrow-link" href="{{ url_for('explanation') }}">Xem toàn bộ hành trình →</a></div>
-    <div class="stage-row">
-      {% for g in giai_doan %}
-      <div class="stage-chip stage-chip-{{ g.mau }}">
-        <span class="stage-num">{{ '0' ~ g.so }}</span>
-        <span class="stage-name">{{ g.ten }}</span>
-        <span class="stage-time">{{ g.thoi_gian }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    <div class="link-more-row">
-      <a href="{{ url_for('muc_tieu_to') }}" class="link-more">Mục tiêu tổ theo tuần →</a>
-      <a href="{{ url_for('thong_so_ca_nhan') }}" class="link-more">Thông số cá nhân →</a>
-    </div>
-  </div>
-</section>
-
-{% endblock %}
+</body>
+</html>
